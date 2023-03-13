@@ -113,7 +113,7 @@ struct bpart {
 
   /*! Smoothed sound speed of the gas surrounding the black hole. */
   float sound_speed_gas;
-    
+
   /*! Smoothed sound speed of the gas surrounding the black hole, taking
    * account of only the hot particles. */
   float sound_speed_gas_hot;
@@ -204,7 +204,7 @@ struct bpart {
 
   /*! Current heating temperature of the BH */
   float delta_T;
-    
+
   /*! BH accretion-limited time-step */
   float dt_heat;
 

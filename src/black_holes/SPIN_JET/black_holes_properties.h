@@ -161,15 +161,15 @@ struct black_holes_props {
 
   /*! The type of jet velocity scaling to use. */
   enum AGN_heating_temperature_models AGN_heating_temperature_model;
-    
-  /*! Temperature increase induced by AGN feedback (Kelvin), 
+
+  /*! Temperature increase induced by AGN feedback (Kelvin),
       in the constant-temperature case */
   float AGN_delta_T_desired;
-    
+
   /* Numerical factor by which we rescale the variable delta_T formula,
      fiducial value is 1 */
   float delta_T_xi;
-    
+
   /* The minimum heating temperature to apply in the case of variable feedback,
      expressed in Kelvin */
   float delta_T_min;
@@ -177,7 +177,7 @@ struct black_holes_props {
   /* The minimum sound speed of the gas to consider when calculating the
      average sound speed of the gas around the BH */
   float hot_gas_sound_speed_min;
-    
+
   /* Constants used to parametrise the Dalla Vecchia & Schaye (2012)
    condition - Eqn 18. */
   float normalisation_Dalla_Vecchia;
@@ -557,7 +557,7 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
       params, "SPINJETAGN:AGN_use_deterministic_feedback", 1);
   bp->epsilon_f =
       parser_get_param_float(params, "SPINJETAGN:coupling_efficiency");
-    
+
   /* Common conversion factors ----------------------------- */
 
   /* Calculate temperature to internal energy conversion factor (all internal
@@ -583,52 +583,53 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
             bp->AGN_delta_T_desired);
 
     bp->AGN_delta_T_desired /=
-      units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
+        units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
 
   } else if (strcmp(temp2, "SoundSpeed") == 0) {
     bp->AGN_heating_temperature_model = AGN_heating_temperature_soundspeed;
 
     bp->delta_T_xi = parser_get_param_float(params, "SPINJETAGN:delta_T_xi");
 
-    bp->delta_T_min =
-        parser_get_param_float(params, "SPINJETAGN:delta_T_min");
-      
+    bp->delta_T_min = parser_get_param_float(params, "SPINJETAGN:delta_T_min");
+
     /* Check that minimum temperature makes sense */
     if (bp->delta_T_min <= 0.f)
-      error("The minimum AGN heating temperature delta T must be > 0 K, "
-            "not %.5e K.", bp->delta_T_min);
-      
+      error(
+          "The minimum AGN heating temperature delta T must be > 0 K, "
+          "not %.5e K.",
+          bp->delta_T_min);
+
     /* Convert to internal units */
-    bp->delta_T_min /=
-      units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
-      
+    bp->delta_T_min /= units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
+
     /* Do the same for minimum temperature of the hot gas */
     float hot_gas_temperature_min =
         parser_get_param_float(params, "SPINJETAGN:hot_gas_temperature_min");
-      
+
     if (hot_gas_temperature_min <= 0.f)
-      error("The minimum hot gas temperature must be > 0 K, not %.5e K."
-            , hot_gas_temperature_min);
-      
+      error("The minimum hot gas temperature must be > 0 K, not %.5e K.",
+            hot_gas_temperature_min);
+
     hot_gas_temperature_min /=
-      units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
-      
+        units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
+
     /* Convert this minimum temperature to sound speed */
-    bp->hot_gas_sound_speed_min = sqrtf(hydro_gamma * hydro_gamma_minus_one *
-                        hot_gas_temperature_min * bp->temp_to_u_factor);
-      
+    bp->hot_gas_sound_speed_min =
+        sqrtf(hydro_gamma * hydro_gamma_minus_one * hot_gas_temperature_min *
+              bp->temp_to_u_factor);
+
     /* Define constants used to parametrise the Dalla Vecchia & Schaye (2012)
        condition - Eqn 18. */
     bp->normalisation_Dalla_Vecchia = 1.8e6;
-    bp->normalisation_Dalla_Vecchia /= 
+    bp->normalisation_Dalla_Vecchia /=
         units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
-    bp->ref_ngb_mass_Dalla_Vecchia = 1e6 * 60. * 
-        phys_const->const_solar_mass;
-      
+    bp->ref_ngb_mass_Dalla_Vecchia = 1e6 * 60. * phys_const->const_solar_mass;
+
     /* This is nH = 0.1 cm^-3, convert to physical density */
-    bp->ref_density_Dalla_Vecchia = 0.1 * mu * m_p /
+    bp->ref_density_Dalla_Vecchia =
+        0.1 * mu * m_p /
         units_cgs_conversion_factor(us, UNIT_CONV_NUMBER_DENSITY);
-    
+
   } else {
     error(
         "The AGN heating temperature model must be Constant or SoundSpeed,"

@@ -71,8 +71,7 @@ __attribute__((always_inline)) INLINE static float black_holes_compute_timestep(
     /* Average particle mass in BH's kernel */
     const double mean_ngb_mass = bp->ngb_mass / ((double)bp->num_ngbs);
     /* Without multiplying by mean_ngb_mass we'd get energy per unit mass */
-    const double E_heat =
-        bp->delta_T * props->temp_to_u_factor * mean_ngb_mass;
+    const double E_heat = bp->delta_T * props->temp_to_u_factor * mean_ngb_mass;
     const double E_jet = 0.5 * mean_ngb_mass * bp->v_jet * bp->v_jet;
 
     /* Compute average time between energy injections for the given accretion
@@ -1036,7 +1035,7 @@ __attribute__((always_inline)) INLINE static void black_holes_prepare_feedback(
   /* Below we compute energy required to have a feedback event(s)
    * Note that we have subtracted the particles we swallowed from the ngb_mass
    * and num_ngbs accumulators. */
-    
+
   /* Update the heating temperature of the BH */
   bp->delta_T = black_hole_feedback_delta_T(bp, props, cosmo, constants);
 

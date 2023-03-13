@@ -101,7 +101,7 @@ runner_iact_nonsym_bh_gas_density(
 
   /* Contribution to the smoothed sound speed */
   bi->sound_speed_gas += mj * cj * wi;
-    
+
   if (cj * cosmo->a_factor_sound_speed > bh_props->hot_gas_sound_speed_min) {
     bi->sound_speed_gas_hot += mj * cj * wi;
     bi->rho_gas_hot += mj * wi;
