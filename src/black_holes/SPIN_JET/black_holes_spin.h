@@ -28,6 +28,7 @@
 #include "black_holes_struct.h"
 #include "inline.h"
 #include "physical_constants.h"
+#include "hydro_properties.h"
 
 /**
  * @brief Compute the radius of the horizon of a BH particle in gravitational
@@ -836,6 +837,59 @@ __attribute__((always_inline)) INLINE static float da_dln_mbh_0(
   }
 
   return spinup_rate;
+}
+
+/**
+ * @brief Compute the heating temperature used for AGN feedback. 
+ *
+ * @param bp The #bpart doing feedback.
+ * @param props Properties of the BH scheme.
+ * @param cosmo The current cosmological model.
+ * @param constants The physical constants (in internal units).
+ */
+__attribute__((always_inline)) INLINE static float black_hole_feedback_delta_T(
+    const struct bpart* bp, const struct black_holes_props* props,
+    const struct cosmology* cosmo, const struct phys_const* constants) {
+
+  float delta_T = -1.;
+  if (props->AGN_heating_temperature_model == 
+      AGN_heating_temperature_constant) {
+    delta_T = props->AGN_delta_T_desired;
+
+  } else if (props->AGN_heating_temperature_model == 
+             AGN_heating_temperature_soundspeed) {
+
+    /* Calculate feedback power */
+    const float feedback_power = bp->radiative_efficiency * props->epsilon_f *
+        bp->accretion_rate * constants->const_speed_light_c * 
+        constants->const_speed_light_c;
+      
+    /* Sound croosing time-scale */
+    float sound_speed = bp->sound_speed_gas_hot * cosmo->a_factor_sound_speed;
+    sound_speed = fmaxf(sound_speed, props->hot_gas_sound_speed_min);
+      
+    const float replenishment_time_scale = bp->h * cosmo->a / sound_speed;
+
+    /* Calculate jet velocity from the power, smoothing length (proper, not
+       comoving), neighbour sound speed and neighbour mass. Apply floor. */
+    delta_T = props->delta_T_xi * 2.f * 0.6 * 
+      feedback_power * replenishment_time_scale * constants->const_proton_mass
+        / (3.f * constants->const_boltzmann_k * bp->ngb_mass);
+      
+    /* Calculate minimum temperature from Dalla Vecchia & Schaye (2012) to
+       prevent numerical overcooling. This is in Kelvin. */
+    float delta_T_min_Dalla_Vecchia = props->normalisation_Dalla_Vecchia * 
+        cbrt(bp->ngb_mass / props->ref_ngb_mass_Dalla_Vecchia) * 
+        pow(bp->rho_gas * cosmo->a3_inv / props->ref_density_Dalla_Vecchia, 2.f / 3.f);
+      
+    /* Apply Dalla Vecchia & Schaye (2012) floor */
+    delta_T = fmaxf(delta_T, delta_T_min_Dalla_Vecchia);
+      
+    /* Apply an additional, constant floor */
+    delta_T = fmaxf(delta_T, props->delta_T_min);
+  } 
+
+  return delta_T;
 }
 
 /**
