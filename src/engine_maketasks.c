@@ -1684,7 +1684,7 @@ void engine_make_hierarchical_tasks_hydro(struct engine *e, struct cell *c,
 
         /* In cases where nothing but RT is active, don't allow the timestep
          * collect to run before we've finished */
-        scheduler_addunlock(s, c->rt.rt_out, c->super->timestep_collect);
+        scheduler_addunlock(s, c->rt.rt_out, c->top->timestep_collect);
 
         /* non-implicit ghost 1 */
         c->rt.rt_ghost1 = scheduler_addtask(s, task_type_rt_ghost1,
