@@ -4217,12 +4217,16 @@ void engine_addtasks_send_mapper(void *map_data, int num_elements,
       scheduler_addunlock(&e->sched, ci->timestep_collect, tend);
       engine_addlink(e, &ci->mpi.send, tend);
 
-      if (with_rt && (type & proxy_cell_type_hydro)) {
+      if (with_rt && (type & proxy_cell_type_hydro) && ci->super != NULL) {
 
         /* If we're running with RT subcycling, we need to ensure that nothing
          * is sent before the advance cell time task has finished. This may
          * overwrite the correct cell times, particularly so when we're sending
-         * over data for non-RT tasks, e.g. for gravity pair tasks. */
+         * over data for non-RT tasks, e.g. for gravity pair tasks. 
+         * Do this only for cells that have an rt_advance_cell_time task, i.e.
+         * are on or below the super level. `send/tend` may be above the super
+         * level (i.e. top level), so we may be above the super level here. Hence
+         * the check for ci->super != NULL above. */
         if (ci->super->rt.rt_advance_cell_time != NULL) {
           scheduler_addunlock(&e->sched, ci->super->rt.rt_advance_cell_time,
                               tend);
