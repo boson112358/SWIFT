@@ -651,6 +651,10 @@ void engine_addtasks_recv_hydro(
         scheduler_addunlock(s, c->super->rt.rt_advance_cell_time,
                             c->top->rt.rt_collect_times);
 
+        /* @TODO just checking for now, not sure this is necessary */
+        /* scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, */
+        /*                     c->top->timestep_collect); */
+
         /* In normal steps, tend mustn't run before rt_advance_cell_time or the
          * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
          * have the tend tasks, so there's no worry about that. (Them missing is
@@ -4186,6 +4190,52 @@ struct cell_type_pair {
   int type;
 };
 
+
+/**
+ * If we're running with RT subcycling, we need to ensure that nothing
+ * is sent before the advance cell time task has finished. This may
+ * overwrite the correct cell times, particularly so when we're sending
+ * over data for non-RT tasks, e.g. for gravity pair tasks. Therefore the
+ * send/tend task needs to be unlocked by the rt_advance_cell_time task.
+ *
+ * The send/tend task is on the top level, while the rt_advance_cell_time
+ * task is on the super level. This function simply recurses down to the
+ * super level and adds the required dependency.
+ *
+ * @param c cell to check/recurse into
+ * @param tend the send/tend task that needs to be unlocked.
+ * @param e the engine
+ */
+void engine_addunlock_rt_advance_cell_time_tend(struct cell* c, struct task* tend, struct engine *e){
+
+  /* safety measure */
+  if (!cell_get_flag(c, cell_flag_has_tasks)) return;
+  if (cell_is_empty(c)) return;
+
+  if (c->super == c){
+    /* Found the super level cell. Add dependency from rt_advance_cell_time, if it exists. */
+    if (c->super->rt.rt_advance_cell_time != NULL) {
+      scheduler_addunlock(&e->sched, c->super->rt.rt_advance_cell_time, tend);
+    }
+#ifdef SWIFT_RT_DEBUG_CHECKS
+    else {
+          error("Got local super cell without rt_advance_cell_time task");
+    }
+#endif
+
+  } else {
+    /* descend the tree until you find the super level */
+    if (c->split) {
+      for (int k = 0; k < 8; k++) {
+        if (c->progeny[k] != NULL) {
+          engine_addunlock_rt_advance_cell_time_tend(c->progeny[k], tend, e);
+        }
+      }
+    }
+  }
+}
+
+
 void engine_addtasks_send_mapper(void *map_data, int num_elements,
                                  void *extra_data) {
 
@@ -4217,25 +4267,8 @@ void engine_addtasks_send_mapper(void *map_data, int num_elements,
       scheduler_addunlock(&e->sched, ci->timestep_collect, tend);
       engine_addlink(e, &ci->mpi.send, tend);
 
-      if (with_rt && (type & proxy_cell_type_hydro) && ci->super != NULL) {
-
-        /* If we're running with RT subcycling, we need to ensure that nothing
-         * is sent before the advance cell time task has finished. This may
-         * overwrite the correct cell times, particularly so when we're sending
-         * over data for non-RT tasks, e.g. for gravity pair tasks. 
-         * Do this only for cells that have an rt_advance_cell_time task, i.e.
-         * are on or below the super level. `send/tend` may be above the super
-         * level (i.e. top level), so we may be above the super level here. Hence
-         * the check for ci->super != NULL above. */
-        if (ci->super->rt.rt_advance_cell_time != NULL) {
-          scheduler_addunlock(&e->sched, ci->super->rt.rt_advance_cell_time,
-                              tend);
-#ifdef SWIFT_RT_DEBUG_CHECKS
-        } else {
-          error("Got local super cell without rt_advance_cell_time task");
-#endif
-        }
-      }
+      if (with_rt && (type & proxy_cell_type_hydro))
+        engine_addunlock_rt_advance_cell_time_tend(ci, tend, e);
     }
 #endif
 
