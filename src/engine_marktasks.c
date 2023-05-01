@@ -1565,7 +1565,7 @@ void engine_marktasks_mapper(void *map_data, int num_elements,
     }
 
     /* Time-step or time-step collection? */
-    else if (t_type == task_type_timestep || t_type == task_type_collect) {
+    else if (t_type == task_type_timestep) {
       t->ci->hydro.updated = 0;
       t->ci->grav.updated = 0;
       t->ci->stars.updated = 0;
@@ -1580,6 +1580,27 @@ void engine_marktasks_mapper(void *map_data, int num_elements,
           scheduler_activate(s, t);
       }
     }
+
+    /* TODO: check this - we shouldn't be needing time-step tasks. */
+    /* Time-step or time-step collection? */
+    else if (t_type == task_type_collect) {
+      t->ci->hydro.updated = 0;
+      t->ci->grav.updated = 0;
+      t->ci->stars.updated = 0;
+      t->ci->sinks.updated = 0;
+      t->ci->black_holes.updated = 0;
+      t->ci->rt.updated = 0; /* this is different from time-step */
+
+      if (!cell_is_empty(t->ci)) {
+        if (cell_is_active_hydro(t->ci, e) ||
+            cell_is_active_gravity(t->ci, e) ||
+            cell_is_active_stars(t->ci, e) || cell_is_active_sinks(t->ci, e) ||
+            cell_is_active_black_holes(t->ci, e) || cell_is_rt_active(t->ci, e))
+            /* this is different from time-step ----^*/
+          scheduler_activate(s, t);
+      }
+    }
+
 
     else if ((t_type == task_type_send && t_subtype == task_subtype_tend) ||
              (t_type == task_type_recv && t_subtype == task_subtype_tend)) {
