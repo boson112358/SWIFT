@@ -205,7 +205,9 @@ __attribute__((always_inline)) INLINE static int cell_is_rt_active(
    * e.g. gravity. However, foreign cells may have tasks on levels below
    * the rt_advance_cell_time, so allow for that exception in this check. */
 
-  int has_rt_advance_cell_time = 0;
+  /* TODO MLADEN before MR: write a better test here. Top level cells need
+   * to descend town to super level cells to check for rt_advance_cell_time tasks. */
+  int has_rt_advance_cell_time = 1;
   if (c->super != NULL)
     has_rt_advance_cell_time = c->super->rt.rt_advance_cell_time != NULL;
 

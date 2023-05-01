@@ -3321,12 +3321,23 @@ int cell_unskip_rt_tasks(struct cell *c, struct scheduler *s,
     }
 
     /* The rt_advance_cell_time tasks also run on foreign cells */
-    if (c->super != NULL && c->super->rt.rt_advance_cell_time != NULL)
+    if (c->super != NULL && c->super->rt.rt_advance_cell_time != NULL){
       scheduler_activate(s, c->super->rt.rt_advance_cell_time);
+    }
     /* The rt_collect_times tasks replace the timestep_collect tasks
-     * during sub-cycles, so we only activate it when sub-cycling. */
-    if (c->rt.rt_collect_times != NULL && sub_cycle)
-      scheduler_activate(s, c->rt.rt_collect_times);
+     * during sub-cycles, so we only activate it when sub-cycling.
+     * Otherwise, make sure timestep_collect is active. */
+    if (sub_cycle) {
+      if (c->top->rt.rt_collect_times != NULL)
+        scheduler_activate(s, c->top->rt.rt_collect_times);
+    } else {
+      if (c->top->timestep_collect != NULL)
+        scheduler_activate(s, c->top->timestep_collect);
+      /* TODO MLADEN before MR: check whether other time tasks need activation here.
+       * We don't need timestep tasks - they are meant to run only when hydro is
+       * active. rt_advance_cell_time replaces them if the timestep tasks aren't active.
+       * But comms? tend, stuff like that? */
+    }
   }
 
   return rebuild;
