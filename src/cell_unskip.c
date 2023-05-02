@@ -3321,7 +3321,7 @@ int cell_unskip_rt_tasks(struct cell *c, struct scheduler *s,
     }
 
     /* The rt_advance_cell_time tasks also run on foreign cells */
-    if (c->super != NULL && c->super->rt.rt_advance_cell_time != NULL){
+    if (c->super != NULL && c->super->rt.rt_advance_cell_time != NULL) {
       scheduler_activate(s, c->super->rt.rt_advance_cell_time);
     }
     if (sub_cycle) {

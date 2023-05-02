@@ -1595,11 +1595,10 @@ void engine_marktasks_mapper(void *map_data, int num_elements,
             cell_is_active_gravity(t->ci, e) ||
             cell_is_active_stars(t->ci, e) || cell_is_active_sinks(t->ci, e) ||
             cell_is_active_black_holes(t->ci, e) || cell_is_rt_active(t->ci, e))
-            /* this is different from time-step ----^*/
+          /* this is different from time-step ----^*/
           scheduler_activate(s, t);
       }
     }
-
 
     else if ((t_type == task_type_send && t_subtype == task_subtype_tend) ||
              (t_type == task_type_recv && t_subtype == task_subtype_tend)) {
