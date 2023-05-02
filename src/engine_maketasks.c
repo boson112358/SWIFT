@@ -4186,7 +4186,6 @@ struct cell_type_pair {
   int type;
 };
 
-
 /**
  * If we're running with RT subcycling, we need to ensure that nothing
  * is sent before the advance cell time task has finished. This may
@@ -4202,20 +4201,23 @@ struct cell_type_pair {
  * @param tend the send/tend task that needs to be unlocked.
  * @param e the engine
  */
-void engine_addunlock_rt_advance_cell_time_tend(struct cell* c, struct task* tend, struct engine *e){
+void engine_addunlock_rt_advance_cell_time_tend(struct cell *c,
+                                                struct task *tend,
+                                                struct engine *e) {
 
   /* safety measure */
   if (!cell_get_flag(c, cell_flag_has_tasks)) return;
   if (cell_is_empty(c)) return;
 
-  if (c->super == c){
-    /* Found the super level cell. Add dependency from rt_advance_cell_time, if it exists. */
+  if (c->super == c) {
+    /* Found the super level cell. Add dependency from rt_advance_cell_time, if
+     * it exists. */
     if (c->super->rt.rt_advance_cell_time != NULL) {
       scheduler_addunlock(&e->sched, c->super->rt.rt_advance_cell_time, tend);
     }
 #ifdef SWIFT_RT_DEBUG_CHECKS
     else {
-          error("Got local super cell without rt_advance_cell_time task");
+      error("Got local super cell without rt_advance_cell_time task");
     }
 #endif
 
@@ -4230,7 +4232,6 @@ void engine_addunlock_rt_advance_cell_time_tend(struct cell* c, struct task* ten
     }
   }
 }
-
 
 void engine_addtasks_send_mapper(void *map_data, int num_elements,
                                  void *extra_data) {

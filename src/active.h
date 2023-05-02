@@ -214,7 +214,7 @@ __attribute__((always_inline)) INLINE static int cell_is_rt_active(
   } else {
     cell_does_rt = c->top->rt.rt_collect_times != NULL;
   }
-  if ( cell_does_rt && (c->rt.ti_rt_end_min < e->ti_current_subcycle)) {
+  if (cell_does_rt && (c->rt.ti_rt_end_min < e->ti_current_subcycle)) {
     error(
         "cell %lld in an impossible time-zone! c->ti_rt_end_min=%lld (t=%e) "
         "and e->ti_current=%lld (t=%e, a=%e) c->nodeID=%d ACT=%d count=%d",
