@@ -651,10 +651,6 @@ void engine_addtasks_recv_hydro(
         scheduler_addunlock(s, c->super->rt.rt_advance_cell_time,
                             c->top->rt.rt_collect_times);
 
-        /* @TODO just checking for now, not sure this is necessary */
-        /* scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, */
-        /*                     c->top->timestep_collect); */
-
         /* In normal steps, tend mustn't run before rt_advance_cell_time or the
          * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
          * have the tend tasks, so there's no worry about that. (Them missing is
