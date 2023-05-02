@@ -1564,7 +1564,7 @@ void engine_marktasks_mapper(void *map_data, int num_elements,
       if (cell_is_active_black_holes(t->ci, e)) scheduler_activate(s, t);
     }
 
-    /* Time-step or time-step collection? */
+    /* Time-step collection? */
     else if (t_type == task_type_timestep) {
       t->ci->hydro.updated = 0;
       t->ci->grav.updated = 0;
@@ -1581,8 +1581,7 @@ void engine_marktasks_mapper(void *map_data, int num_elements,
       }
     }
 
-    /* TODO: check this - we shouldn't be needing time-step tasks. */
-    /* Time-step or time-step collection? */
+    /* Time-step collection? */
     else if (t_type == task_type_collect) {
       t->ci->hydro.updated = 0;
       t->ci->grav.updated = 0;
