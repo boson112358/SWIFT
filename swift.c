@@ -170,6 +170,7 @@ int main(int argc, char *argv[]) {
   int dump_threadpool = 0;
   int nsteps = -2;
   int restart = 0;
+  int dump_restart_on_step_one = 0;
   int with_cosmology = 0;
   int with_external_gravity = 0;
   int with_temperature = 0;
@@ -309,6 +310,10 @@ int main(int argc, char *argv[]) {
                   "not read the particles from ICs. Exits before the start of "
                   "time integration. Checks the validity of parameters and IC "
                   "files as well as memory limits.",
+                  NULL, 0, 0),
+      OPT_BOOLEAN(0, "dump-restart-on-first-step", &dump_restart_on_step_one,
+                  "Write restart files after completing step 1, and continue with "
+                  "the run. This option is mainly for development and debugging.",
                   NULL, 0, 0),
       OPT_BOOLEAN('e', "fpe", &with_fp_exceptions,
                   "Enable floating-point exceptions (debugging mode).", NULL, 0,
@@ -1717,6 +1722,9 @@ int main(int argc, char *argv[]) {
     /* Shall we write some check-point files?
      * Note that this was already done by engine_step() if force_stop is set */
     if (e.restart_onexit && e.step - 1 == nsteps && !force_stop)
+      engine_dump_restarts(&e, /*drifted=*/0, /*force=*/1);
+    /* Shall we dump restarts after the first step is done? */
+    if (dump_restart_on_step_one && e.step == 1)
       engine_dump_restarts(&e, /*drifted=*/0, /*force=*/1);
 
     /* Dump the task data using the given frequency. */
