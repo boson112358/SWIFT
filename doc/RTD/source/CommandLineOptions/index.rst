@@ -79,6 +79,10 @@ can be found by typing ``./swift -h``:
                                       integration. Checks the validity of
                                       parameters and IC files as well as memory
                                       limits.
+    --dump-restart-on-first-step      Write restart files after completing
+                                      step 1, and continue with the run. This
+                                      option is mainly for development and
+                                      debugging.
     -e, --fpe                         Enable floating-point exceptions (debugging
                                       mode).
     -f, --cpu-frequency=<str>         Overwrite the CPU frequency (Hz) to be
