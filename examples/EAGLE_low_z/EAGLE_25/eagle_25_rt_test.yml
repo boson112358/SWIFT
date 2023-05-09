@@ -101,11 +101,3 @@ GEARRT:
   stars_max_timestep: -1.                           # (Optional) restrict the maximal timestep of stars to this value (in internal units). Set to negative to turn off.
   max_tchem_recursion: 10                           # (Optional) if > 0, sets the maximal recursion depth when re-computing the thermochemistry if |u_new/u_old - 1| > 0.1.
 
-
-# Parameters controlling restarts
-Restarts:
-  enable:             1          # (Optional) whether to enable dumping restarts at fixed intervals.
-  save:               0          # (Optional) whether to save copies of the previous set of restart files (named .prev)
-  delta_hours:        12.0       # (Optional) decimal hours between dumps of restart files.
-  stop_steps:         16         # (Optional) how many steps to process before checking if the <subdir>/stop file exists. When present the application will attempt to exit early, dumping restart files first.
- 
