@@ -125,6 +125,15 @@ struct scheduler {
 
   /* Frequency of the task levels dumping. */
   int frequency_task_levels;
+
+  /* Time at which last task was successfully retrieved from a queue */
+// #ifdef SWIFT_DEBUG_CHECKS
+  ticks last_successful_task_fetch;
+
+  swift_lock_type scheduler_time_lock;
+
+  struct engine* e;
+// endif
 };
 
 /* Inlined functions (for speed). */

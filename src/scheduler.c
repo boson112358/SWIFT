@@ -2588,12 +2588,15 @@ void scheduler_enqueue(struct scheduler *s, struct task *t) {
           error("Unknown communication sub-type");
         }
 
+
+if (! (s->e->step == 8 && t->type == task_type_recv && t->subtype == task_subtype_rt_gradient)){
         err = MPI_Irecv(buff, count, type, t->ci->nodeID, t->flags,
                         subtaskMPI_comms[t->subtype], &t->req);
 
         if (err != MPI_SUCCESS) {
           mpi_error(err, "Failed to emit irecv for particle data.");
         }
+}
 
         /* And log, if logging enabled. */
         mpiuse_log_allocation(t->type, t->subtype, &t->req, 1, size,
@@ -2812,6 +2815,98 @@ struct task *scheduler_unlock(struct scheduler *s, struct task *t) {
 }
 
 /**
+ * Mark the time at which a task was successfully fetched from the queue
+ *
+ * @param s The #scheduler.
+ */
+void scheduler_mark_last_fetch(struct scheduler *s) {
+// #ifdef SWIFT_DEBUG_CHECKS
+
+  ticks now = getticks();
+ticks old = s->last_successful_task_fetch;
+
+  lock_lock(&(s->scheduler_time_lock));;
+  if (s->last_successful_task_fetch < now)
+    s->last_successful_task_fetch = now;
+  else
+    message("Caught now earlier than last time %llu %llu", now, old);
+
+  lock_unlock(&(s->scheduler_time_lock));
+
+  /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, fetch); */
+
+/* message("Setting scheduler time from %llu to %llu diff=%llu", old, now, fetch-old); */
+
+/* #endif */
+}
+
+
+/**
+ * Has the scheduler been idle for too long?
+ * Returns 1 if that is the case.
+ *
+ * @param s The #scheduler.
+ */
+int scheduler_idle_too_long(struct scheduler *s) {
+/* #ifdef SWIFT_DEBUG_CHECKS */
+  /* should be in ms */
+
+
+  lock_lock(&(s->scheduler_time_lock));;
+  ticks now = getticks();
+
+  double idle_time = clocks_diff_ticks(now, s->last_successful_task_fetch);
+
+  /* if (s->last_successful_task_fetch < now) */
+  /*   s->last_successful_task_fetch = now; */
+  /* else */
+  /*   message("INIT Caught now earlier than last time %llu %llu", now, old); */
+  lock_unlock(&(s->scheduler_time_lock));
+
+  /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now); */
+
+  /* = clocks_diff_ticks(now, s->last_successful_task_fetch); */
+
+
+  if (idle_time > 20.*1000.) {
+    message("idle time is %g | %llu %llu %llu", idle_time, now, s->last_successful_task_fetch, now - s->last_successful_task_fetch);
+    return 1;
+  }
+  return 0;
+/* #else */
+  /* return 0; */
+/* #endif */
+}
+
+/**
+ * Abort the run if you're stuck doing nothing for too long.
+ * This function is intended to abort the mission if you're
+ * deadlocked somewhere and somehow. You might get core dumps
+ * this way. Alternatively, you might manually set a breakpoint
+ * with gdb when this function is called.
+ *
+ * @param s The #scheduler.
+ */
+void scheduler_abort_deadlock(struct scheduler *s){
+/* #if defined(SWIFT_DEBUG_CHECKS) && defined (WITH_MPI) */
+
+  message("Detected what looks like a deadlock. Dumping queues.");
+
+  ticks now = getticks();
+  /* should be in ms */
+  double idle_time = clocks_diff_ticks(now, s->last_successful_task_fetch);
+  message("idle time is %g", idle_time);
+
+  scheduler_dump_queues(s->e);
+  error("Aborting now.");
+
+
+
+/* #endif */
+}
+
+
+/**
  * @brief Get a task, preferably from the given queue.
  *
  * @param s The #scheduler.
@@ -2828,6 +2923,11 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
 
   /* Check qid. */
   if (qid >= nr_queues || qid < 0) error("Bad queue ID.");
+
+
+
+
+
 
   /* Loop as long as there are tasks... */
   while (s->waiting > 0 && res == NULL) {
@@ -2854,10 +2954,11 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
           TIMER_TIC
           res = queue_gettask(&s->queues[qids[ind]], prev, 0);
           TIMER_TOC(timer_qsteal);
-          if (res != NULL)
+          if (res != NULL){
             break;
-          else
+          } else {
             qids[ind] = qids[--count];
+          }
         }
         if (res != NULL) break;
       }
@@ -2876,16 +2977,21 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
         pthread_cond_wait(&s->sleep_cond, &s->sleep_mutex);
       }
       pthread_mutex_unlock(&s->sleep_mutex);
+
+      if (scheduler_idle_too_long(s)) scheduler_abort_deadlock(s);
     }
   }
 
-  /* Start the timer on this task, if we got one. */
   if (res != NULL) {
+    scheduler_mark_last_fetch(s);
+    /* Start the timer on this task, if we got one. */
     res->tic = getticks();
 #ifdef SWIFT_DEBUG_TASKS
     res->rid = qid;
 #endif
   }
+
+
 
   /* No milk today. */
   return res;
@@ -2943,6 +3049,23 @@ void scheduler_init(struct scheduler *s, struct space *space, int nr_tasks,
   s->tasks = NULL;
   s->tasks_ind = NULL;
   scheduler_reset(s, nr_tasks);
+
+// #ifdef SWIFT_DEBUG_CHECKS
+  ticks now = getticks();
+ticks old = s->last_successful_task_fetch;
+  lock_init(&(s->scheduler_time_lock));
+  lock_lock(&(s->scheduler_time_lock));;
+  if (s->last_successful_task_fetch < now)
+    s->last_successful_task_fetch = now;
+  else
+    message("INIT Caught now earlier than last time %llu %llu", now, old);
+  lock_unlock(&(s->scheduler_time_lock));
+
+  /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now); */
+message("INIT Setting scheduler time from %llu to %llu diff=%llu", old, now, now-old);
+  s->e = space->e;
+
+// #endif
 }
 
 /**
