@@ -2822,23 +2822,21 @@ struct task *scheduler_unlock(struct scheduler *s, struct task *t) {
 void scheduler_mark_last_fetch(struct scheduler *s) {
 // #ifdef SWIFT_DEBUG_CHECKS
 
-  ticks now = getticks();
+  const ticks now = getticks();
 
-  lock_lock(&(s->scheduler_time_lock));
-  ticks old = s->last_successful_task_fetch;
-
+  /* This procedure is not exactly threadsafe, and we can end up in situations
+   * where the last_successful_task_fetch is already "later" than the current
+   * time "now". The assumption is that users will specify a deadlock to be
+   * detected after no new task has been fetched for a couple of seconds or
+   * minutes, whereas these race conditions should occur on the order of
+   * microseconds. Also being in a situation where these race conditions can
+   * occur means we're not in a situation where we have a deadlock.
+   * So being off by a couple of microseconds doesn't matter, as
+   * long as the actual value written into the variable isn't some weird junk.
+   * Hence we use the atomic_cas to ensure no junk is written, and only keep the
+   * "later" time. */
   if (s->last_successful_task_fetch < now)
-    s->last_successful_task_fetch = now;
-  else
-    message("=== Caught now earlier than last time %llu %llu", now, old);
-
-  if (lock_unlock(&(s->scheduler_time_lock)) != 0)
-    error("Failed to unlock time lock");
-  message("Set last fetch to %llu", now);
-
-  /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, fetch); */
-
-/* message("Setting scheduler time from %llu to %llu diff=%llu", old, now, fetch-old); */
+    atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now);
 
 /* #endif */
 }
@@ -2851,30 +2849,19 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
  * @param s The #scheduler.
  */
 int scheduler_idle_too_long(struct scheduler *s) {
-/* #ifdef SWIFT_DEBUG_CHECKS */
-  /* should be in ms */
+/* #if defined (SWIFT_DEBUG_CHECKS) && defined (WITH_MPI) */
 
-
-  lock_lock(&(s->scheduler_time_lock));
   const ticks now = getticks();
   const ticks last = s->last_successful_task_fetch;
+  /* Same here: `last_successful_task_fetch` may be < `now` due
+   * to race conditions. That's not a problem since we expect the
+   * deadlock timeout to be after seconds/minutes, not microseconds.
+   * If race conditions occur, that means that tasks are still getting
+   * fetched from queues, and we have no deadlock. */
+  if (last >= now) return 0;
   const double idle_time = clocks_diff_ticks(now, last);
 
-  /* if (s->last_successful_task_fetch < now) */
-  /*   s->last_successful_task_fetch = now; */
-  /* else */
-  /*   message("INIT Caught now earlier than last time %llu %llu", now, old); */
-  if (lock_unlock(&(s->scheduler_time_lock)) != 0)
-    error("Failed to unlock time lock");
-
-  message("Checking idleness last=%llu now=%llu idle=%g", last, now, idle_time);
-
-
-
-  /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now); */
-
-  /* = clocks_diff_ticks(now, s->last_successful_task_fetch); */
-
+  /* message("Checking idleness last=%llu now=%llu idle=%g", last, now, idle_time); */
 
   if (idle_time > 20.*1000.) {
     message("idle time is %g | %llu %llu %llu", idle_time, now, s->last_successful_task_fetch, now - s->last_successful_task_fetch);
@@ -2898,17 +2885,14 @@ int scheduler_idle_too_long(struct scheduler *s) {
 void scheduler_abort_deadlock(struct scheduler *s){
 /* #if defined(SWIFT_DEBUG_CHECKS) && defined (WITH_MPI) */
 
-  message("Detected what looks like a deadlock. Dumping queues.");
 
-  ticks now = getticks();
+  const ticks now = getticks();
   /* should be in ms */
-  double idle_time = clocks_diff_ticks(now, s->last_successful_task_fetch);
-  message("idle time is %g", idle_time);
+  const double idle_time = clocks_diff_ticks(now, s->last_successful_task_fetch);
+  message("Detected what looks like a deadlock after %g ms of no new task being fetched from queues. Dumping queues.", idle_time);
 
   scheduler_dump_queues(s->e);
   error("Aborting now.");
-
-
 
 /* #endif */
 }
@@ -3059,21 +3043,11 @@ void scheduler_init(struct scheduler *s, struct space *space, int nr_tasks,
   scheduler_reset(s, nr_tasks);
 
 // #ifdef SWIFT_DEBUG_CHECKS
-  ticks now = getticks();
-ticks old = s->last_successful_task_fetch;
-  lock_init(&(s->scheduler_time_lock));
-  lock_lock(&(s->scheduler_time_lock));
+  const ticks now = getticks();
   if (s->last_successful_task_fetch < now)
     s->last_successful_task_fetch = now;
-  else
-    message("INIT Caught now earlier than last time %llu %llu", now, old);
-  if (lock_unlock(&(s->scheduler_time_lock)) != 0)
-    error("Failed to unlock time lock");
 
-  /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now); */
-message("INIT Setting scheduler time from %llu to %llu diff=%llu", old, now, now-old);
   s->e = space->e;
-
 // #endif
 }
 

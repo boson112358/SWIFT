@@ -130,8 +130,9 @@ struct scheduler {
 // #ifdef SWIFT_DEBUG_CHECKS
   ticks last_successful_task_fetch;
 
-  swift_lock_type scheduler_time_lock;
+  /* swift_lock_type scheduler_time_lock; */
 
+  /* needed to dump queues on deadlock detection */
   struct engine* e;
 // endif
 };
