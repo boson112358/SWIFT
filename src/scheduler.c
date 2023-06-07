@@ -2588,15 +2588,15 @@ void scheduler_enqueue(struct scheduler *s, struct task *t) {
           error("Unknown communication sub-type");
         }
 
+        if (!(s->e->step == 3 && t->type == task_type_recv &&
+              t->subtype == task_subtype_rt_gradient)) {
+          err = MPI_Irecv(buff, count, type, t->ci->nodeID, t->flags,
+                          subtaskMPI_comms[t->subtype], &t->req);
 
-if (! (s->e->step == 3 && t->type == task_type_recv && t->subtype == task_subtype_rt_gradient)){
-        err = MPI_Irecv(buff, count, type, t->ci->nodeID, t->flags,
-                        subtaskMPI_comms[t->subtype], &t->req);
-
-        if (err != MPI_SUCCESS) {
-          mpi_error(err, "Failed to emit irecv for particle data.");
+          if (err != MPI_SUCCESS) {
+            mpi_error(err, "Failed to emit irecv for particle data.");
+          }
         }
-}
 
         /* And log, if logging enabled. */
         mpiuse_log_allocation(t->type, t->subtype, &t->req, 1, size,
@@ -2820,7 +2820,7 @@ struct task *scheduler_unlock(struct scheduler *s, struct task *t) {
  * @param s The #scheduler.
  */
 void scheduler_mark_last_fetch(struct scheduler *s) {
-// #ifdef SWIFT_DEBUG_CHECKS
+  // #ifdef SWIFT_DEBUG_CHECKS
 
   const ticks now = getticks();
 
@@ -2836,11 +2836,11 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
    * Hence we use the atomic_cas to ensure no junk is written, and only keep the
    * "later" time. */
   if (s->last_successful_task_fetch < now)
-    atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now);
+    atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch,
+               now);
 
-/* #endif */
+  /* #endif */
 }
-
 
 /**
  * Has the scheduler been idle for too long?
@@ -2849,7 +2849,7 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
  * @param s The #scheduler.
  */
 int scheduler_idle_too_long(struct scheduler *s) {
-/* #if defined (SWIFT_DEBUG_CHECKS) && defined (WITH_MPI) */
+  /* #if defined (SWIFT_DEBUG_CHECKS) && defined (WITH_MPI) */
 
   const ticks now = getticks();
   const ticks last = s->last_successful_task_fetch;
@@ -2861,16 +2861,18 @@ int scheduler_idle_too_long(struct scheduler *s) {
   if (last >= now) return 0;
   const double idle_time = clocks_diff_ticks(now, last);
 
-  /* message("Checking idleness last=%llu now=%llu idle=%g", last, now, idle_time); */
+  /* message("Checking idleness last=%llu now=%llu idle=%g", last, now,
+   * idle_time); */
 
-  if (idle_time > 20.*1000.) {
-    message("idle time is %g | %llu %llu %llu", idle_time, now, s->last_successful_task_fetch, now - s->last_successful_task_fetch);
+  if (idle_time > 20. * 1000.) {
+    message("idle time is %g | %llu %llu %llu", idle_time, now,
+            s->last_successful_task_fetch, now - s->last_successful_task_fetch);
     return 1;
   }
   return 0;
-/* #else */
+  /* #else */
   /* return 0; */
-/* #endif */
+  /* #endif */
 }
 
 /**
@@ -2882,21 +2884,23 @@ int scheduler_idle_too_long(struct scheduler *s) {
  *
  * @param s The #scheduler.
  */
-void scheduler_abort_deadlock(struct scheduler *s){
-/* #if defined(SWIFT_DEBUG_CHECKS) && defined (WITH_MPI) */
-
+void scheduler_abort_deadlock(struct scheduler *s) {
+  /* #if defined(SWIFT_DEBUG_CHECKS) && defined (WITH_MPI) */
 
   const ticks now = getticks();
   /* should be in ms */
-  const double idle_time = clocks_diff_ticks(now, s->last_successful_task_fetch);
-  message("Detected what looks like a deadlock after %g ms of no new task being fetched from queues. Dumping queues.", idle_time);
+  const double idle_time =
+      clocks_diff_ticks(now, s->last_successful_task_fetch);
+  message(
+      "Detected what looks like a deadlock after %g ms of no new task being "
+      "fetched from queues. Dumping queues.",
+      idle_time);
 
   scheduler_dump_queues(s->e);
   error("Aborting now.");
 
-/* #endif */
+  /* #endif */
 }
-
 
 /**
  * @brief Get a task, preferably from the given queue.
@@ -2915,11 +2919,6 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
 
   /* Check qid. */
   if (qid >= nr_queues || qid < 0) error("Bad queue ID.");
-
-
-
-
-
 
   /* Loop as long as there are tasks... */
   while (s->waiting > 0 && res == NULL) {
@@ -2946,7 +2945,7 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
           TIMER_TIC
           res = queue_gettask(&s->queues[qids[ind]], prev, 0);
           TIMER_TOC(timer_qsteal);
-          if (res != NULL){
+          if (res != NULL) {
             break;
           } else {
             qids[ind] = qids[--count];
@@ -2982,8 +2981,6 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
     res->rid = qid;
 #endif
   }
-
-
 
   /* No milk today. */
   return res;
@@ -3042,13 +3039,12 @@ void scheduler_init(struct scheduler *s, struct space *space, int nr_tasks,
   s->tasks_ind = NULL;
   scheduler_reset(s, nr_tasks);
 
-// #ifdef SWIFT_DEBUG_CHECKS
+  // #ifdef SWIFT_DEBUG_CHECKS
   const ticks now = getticks();
-  if (s->last_successful_task_fetch < now)
-    s->last_successful_task_fetch = now;
+  if (s->last_successful_task_fetch < now) s->last_successful_task_fetch = now;
 
   s->e = space->e;
-// #endif
+  // #endif
 }
 
 /**
