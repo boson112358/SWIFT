@@ -2589,7 +2589,7 @@ void scheduler_enqueue(struct scheduler *s, struct task *t) {
         }
 
 
-if (! (s->e->step == 8 && t->type == task_type_recv && t->subtype == task_subtype_rt_gradient)){
+if (! (s->e->step == 3 && t->type == task_type_recv && t->subtype == task_subtype_rt_gradient)){
         err = MPI_Irecv(buff, count, type, t->ci->nodeID, t->flags,
                         subtaskMPI_comms[t->subtype], &t->req);
 
@@ -2823,15 +2823,18 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
 // #ifdef SWIFT_DEBUG_CHECKS
 
   ticks now = getticks();
-ticks old = s->last_successful_task_fetch;
 
-  lock_lock(&(s->scheduler_time_lock));;
+  lock_lock(&(s->scheduler_time_lock));
+  ticks old = s->last_successful_task_fetch;
+
   if (s->last_successful_task_fetch < now)
     s->last_successful_task_fetch = now;
   else
-    message("Caught now earlier than last time %llu %llu", now, old);
+    message("=== Caught now earlier than last time %llu %llu", now, old);
 
-  lock_unlock(&(s->scheduler_time_lock));
+  if (lock_unlock(&(s->scheduler_time_lock)) != 0)
+    error("Failed to unlock time lock");
+  message("Set last fetch to %llu", now);
 
   /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, fetch); */
 
@@ -2852,16 +2855,21 @@ int scheduler_idle_too_long(struct scheduler *s) {
   /* should be in ms */
 
 
-  lock_lock(&(s->scheduler_time_lock));;
-  ticks now = getticks();
-
-  double idle_time = clocks_diff_ticks(now, s->last_successful_task_fetch);
+  lock_lock(&(s->scheduler_time_lock));
+  const ticks now = getticks();
+  const ticks last = s->last_successful_task_fetch;
+  const double idle_time = clocks_diff_ticks(now, last);
 
   /* if (s->last_successful_task_fetch < now) */
   /*   s->last_successful_task_fetch = now; */
   /* else */
   /*   message("INIT Caught now earlier than last time %llu %llu", now, old); */
-  lock_unlock(&(s->scheduler_time_lock));
+  if (lock_unlock(&(s->scheduler_time_lock)) != 0)
+    error("Failed to unlock time lock");
+
+  message("Checking idleness last=%llu now=%llu idle=%g", last, now, idle_time);
+
+
 
   /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now); */
 
@@ -2977,9 +2985,9 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
         pthread_cond_wait(&s->sleep_cond, &s->sleep_mutex);
       }
       pthread_mutex_unlock(&s->sleep_mutex);
-
-      if (scheduler_idle_too_long(s)) scheduler_abort_deadlock(s);
     }
+
+    if (scheduler_idle_too_long(s)) scheduler_abort_deadlock(s);
   }
 
   if (res != NULL) {
@@ -3054,12 +3062,13 @@ void scheduler_init(struct scheduler *s, struct space *space, int nr_tasks,
   ticks now = getticks();
 ticks old = s->last_successful_task_fetch;
   lock_init(&(s->scheduler_time_lock));
-  lock_lock(&(s->scheduler_time_lock));;
+  lock_lock(&(s->scheduler_time_lock));
   if (s->last_successful_task_fetch < now)
     s->last_successful_task_fetch = now;
   else
     message("INIT Caught now earlier than last time %llu %llu", now, old);
-  lock_unlock(&(s->scheduler_time_lock));
+  if (lock_unlock(&(s->scheduler_time_lock)) != 0)
+    error("Failed to unlock time lock");
 
   /* atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch, now); */
 message("INIT Setting scheduler time from %llu to %llu diff=%llu", old, now, now-old);
