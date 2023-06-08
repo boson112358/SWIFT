@@ -3153,10 +3153,8 @@ int cell_unskip_rt_tasks(struct cell *c, struct scheduler *s,
         /* Is the foreign cell active and will need stuff from us? */
         if (ci_active) {
 
-          if (e->step != 3) { /* hack to provoke deadlocks */
-            scheduler_activate_send(s, cj->mpi.send, task_subtype_rt_gradient,
-                                    ci_nodeID);
-          }
+          scheduler_activate_send(s, cj->mpi.send, task_subtype_rt_gradient,
+                                  ci_nodeID);
 
           if (cj_active) {
             scheduler_activate_send(s, cj->mpi.send, task_subtype_rt_transport,
