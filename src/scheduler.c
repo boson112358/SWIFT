@@ -2855,6 +2855,7 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
 int scheduler_idle_too_long(struct scheduler *s) {
 
 #if defined(SWIFT_DEBUG_CHECKS) && defined(WITH_MPI)
+  if (s->deadlock_waiting_time_ms <= 0.f) return 0;
 
   const ticks now = getticks();
   const ticks last = s->last_successful_task_fetch;
@@ -2866,8 +2867,7 @@ int scheduler_idle_too_long(struct scheduler *s) {
   if (last >= now) return 0;
   const double idle_time = clocks_diff_ticks(now, last);
 
-  /* In this example: hardcoded to 20s */
-  if (idle_time > 20. * 1000.) return 1;
+  if (idle_time > s->deadlock_waiting_time_ms) return 1;
   return 0;
 
 #else

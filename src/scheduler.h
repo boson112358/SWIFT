@@ -127,6 +127,9 @@ struct scheduler {
   int frequency_task_levels;
 
 #ifdef SWIFT_DEBUG_CHECKS
+  /* How long to wait (in ms) before assuming we're in a deadlock */
+  float deadlock_waiting_time_ms;
+
   /* Time at which last task was successfully retrieved from a queue */
   ticks last_successful_task_fetch;
 

@@ -263,6 +263,13 @@ void engine_config(int restart, int fof, struct engine *e,
     error("Scheduler:task_level_output_frequency should be >= 0");
   }
 
+#if defined(SWIFT_DEBUG_CHECKS)
+  e->sched.deadlock_waiting_time_ms = parser_get_opt_param_float(
+      params, "Scheduler:deadlock_waiting_time_s", -1.f);
+  /* User provides parameter in s. We want it in ms. */
+  e->sched.deadlock_waiting_time_ms *= 1000.f;
+#endif
+
 /* Deal with affinity. For now, just figure out the number of cores. */
 #if defined(HAVE_SETAFFINITY)
   const int nr_cores = sysconf(_SC_NPROCESSORS_ONLN);
