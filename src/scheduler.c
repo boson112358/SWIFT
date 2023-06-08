@@ -2593,7 +2593,6 @@ void scheduler_enqueue(struct scheduler *s, struct task *t) {
           error("Unknown communication sub-type");
         }
 
-        /* this if condition is added to provoke a deadlock at step 3 */
         err = MPI_Irecv(buff, count, type, t->ci->nodeID, t->flags,
                         subtaskMPI_comms[t->subtype], &t->req);
 
