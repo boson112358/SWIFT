@@ -2401,17 +2401,6 @@ void scheduler_enqueue_mapper(void *map_data, int num_elements,
  */
 void scheduler_start(struct scheduler *s) {
 
-#if defined(SWIFT_DEBUG_CHECKS)
-  /* Mark scheduler as starting */
-  message(" ============== RESETTING LAST SUCCESFUL TASK FETCH TO ZERO");
-
-  lock_lock(&s->last_task_fetch_lock);
-  s->last_successful_task_fetch = 0LL;
-  if (lock_unlock(&s->last_task_fetch_lock))
-    error("Couldn't unlock last_successful_task_fetch");
-#endif
-  message(" ============== I SURVIVED");
-
   /* Re-wait the tasks. */
   if (s->active_count > 1000) {
     threadpool_map(s->threadpool, scheduler_rewait_mapper, s->tid_active,
@@ -2830,6 +2819,7 @@ struct task *scheduler_unlock(struct scheduler *s, struct task *t) {
 void scheduler_mark_last_fetch(struct scheduler *s) {
 
 #if defined(SWIFT_DEBUG_CHECKS)
+  if (s->deadlock_waiting_time_ms <= 0.f) return;
 
   /* This procedure is not exactly threadsafe, and we can end up in situations
    * where the last_successful_task_fetch is already "later" than the current
@@ -2910,6 +2900,8 @@ int scheduler_idle_too_long(struct scheduler *s) {
 void scheduler_abort_deadlock(struct scheduler *s) {
 
 #if defined(SWIFT_DEBUG_CHECKS)
+
+  if (s->deadlock_waiting_time_ms <= 0.f) return;
 
   const ticks now = getticks();
   /* should be in ms */
@@ -3076,8 +3068,7 @@ void scheduler_init(struct scheduler *s, struct space *space, int nr_tasks,
   lock_init(&s->last_task_fetch_lock);
 
   lock_lock(&s->last_task_fetch_lock);
-  const ticks now = getticks();
-  s->last_successful_task_fetch = now;
+  s->last_successful_task_fetch = 0LL;
   if (lock_unlock(&s->last_task_fetch_lock))
     error("Couldn't unlock last_task_fetch_lock");
 
