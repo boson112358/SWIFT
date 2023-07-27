@@ -263,7 +263,7 @@ void engine_config(int restart, int fof, struct engine *e,
     error("Scheduler:task_level_output_frequency should be >= 0");
   }
 
-#if defined(SWIFT_DEBUG_CHECKS)
+#if defined(SWIFT_DEBUG_CHECKS) && defined(WITH_MPI)
   e->sched.deadlock_waiting_time_ms = parser_get_opt_param_float(
       params, "Scheduler:deadlock_waiting_time_s", -1.f);
   /* User provides parameter in s. We want it in ms. */

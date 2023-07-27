@@ -126,7 +126,9 @@ struct scheduler {
   /* Frequency of the task levels dumping. */
   int frequency_task_levels;
 
-#ifdef SWIFT_DEBUG_CHECKS
+#if defined(SWIFT_DEBUG_CHECKS)
+  /* Stuff for the deadlock detector */
+
   /* How long to wait (in ms) before assuming we're in a deadlock */
   float deadlock_waiting_time_ms;
 
@@ -135,7 +137,10 @@ struct scheduler {
 
   /* needed to dump queues on deadlock detection */
   struct engine *e;
-#endif
+
+  swift_lock_type last_task_fetch_lock;
+
+#endif /* SWIFT_DEBUG_CHECKS */
 };
 
 /* Inlined functions (for speed). */

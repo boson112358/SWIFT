@@ -2401,6 +2401,15 @@ void scheduler_enqueue_mapper(void *map_data, int num_elements,
  */
 void scheduler_start(struct scheduler *s) {
 
+#if defined(SWIFT_DEBUG_CHECKS)
+  /* Mark scheduler as starting */
+  message(" ============== RESETTING LAST SUCCESFUL TASK FETCH TO ZERO");
+
+  lock_lock(&s->last_task_fetch_lock);
+  s->last_successful_task_fetch = 0LL;
+  lock_unlock(&s->last_successful_task_fetch);
+#endif
+
   /* Re-wait the tasks. */
   if (s->active_count > 1000) {
     threadpool_map(s->threadpool, scheduler_rewait_mapper, s->tid_active,
@@ -2416,11 +2425,6 @@ void scheduler_start(struct scheduler *s) {
   } else {
     scheduler_enqueue_mapper(s->tid_active, s->active_count, s);
   }
-
-#if defined(SWIFT_DEBUG_CHECKS) && defined(WITH_MPI)
-  /* Mark scheduler as starting */
-  s->last_successful_task_fetch = 0;
-#endif
 
   /* Clear the list of active tasks. */
   s->active_count = 0;
@@ -2823,9 +2827,7 @@ struct task *scheduler_unlock(struct scheduler *s, struct task *t) {
  */
 void scheduler_mark_last_fetch(struct scheduler *s) {
 
-#if defined(SWIFT_DEBUG_CHECKS) && defined(WITH_MPI)
-
-  const ticks now = getticks();
+#if defined(SWIFT_DEBUG_CHECKS)
 
   /* This procedure is not exactly threadsafe, and we can end up in situations
    * where the last_successful_task_fetch is already "later" than the current
@@ -2838,9 +2840,11 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
    * long as the actual value written into the variable isn't some weird junk.
    * Hence we use the atomic_cas to ensure no junk is written, and only keep the
    * "later" time. */
-  if (s->last_successful_task_fetch < now)
-    atomic_cas(&(s->last_successful_task_fetch), s->last_successful_task_fetch,
-               now);
+
+  const ticks now = getticks();
+  lock_lock(&s->last_task_fetch_lock);
+  s->last_successful_task_fetch = max(now, s->last_successful_task_fetch);
+  lock_unlock(&s->last_successful_task_fetch);
 
 #endif
 }
@@ -2853,26 +2857,32 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
  */
 int scheduler_idle_too_long(struct scheduler *s) {
 
-#if defined(SWIFT_DEBUG_CHECKS) && defined(WITH_MPI)
+#if defined(SWIFT_DEBUG_CHECKS)
   if (s->deadlock_waiting_time_ms <= 0.f) return 0;
 
   const ticks now = getticks();
-  const ticks last = s->last_successful_task_fetch;
   /* Ensure that the first check each launch doesn't fail. There is
    * no guarantee how long it will take from e.g. scheduler_start()
    * or runner_main() to get to this point. A poorly chosen
    * scheduler->deadlock_waiting_time_ms may abort a big run in places
    * where there is no deadlock. Better safe than sorry. */
-  if (atomic_cas(&(s->last_successful_task_fetch), 0, now) == 0) {
-    scheduler_mark_last_fetch(s);
+
+  lock_lock(&s->last_task_fetch_lock);
+  ticks last = s->last_successful_task_fetch;
+  if (last == 0LL){
+    s->last_successful_task_fetch = now;
+    lock_unlock(&s->last_successful_task_fetch);
     return 0;
   }
-  /* Same as in scheduler_mark_last_fetch: `last_successful_task_fetch`
-   * may be < `now` due to race conditions. That's not a problem since
-   * we expect the deadlock timeout to be after seconds/minutes, not
-   * microseconds. If race conditions occur, that means that tasks are
-   * still getting fetched from queues, and we have no deadlock. */
-  if (last >= now) return 0;
+  lock_unlock(&s->last_successful_task_fetch);
+
+  if (last == 0) error("WHY");
+  if (last >= now) {
+    lock_unlock(&s->last_successful_task_fetch);
+    message("THIS SHOULDN'T BE HAPPENING EITHER YO");
+    return 0;
+  }
+
   const double idle_time = clocks_diff_ticks(now, last);
 
   if (idle_time > s->deadlock_waiting_time_ms) return 1;
@@ -2894,7 +2904,7 @@ int scheduler_idle_too_long(struct scheduler *s) {
  */
 void scheduler_abort_deadlock(struct scheduler *s) {
 
-#if defined(SWIFT_DEBUG_CHECKS) && defined(WITH_MPI)
+#if defined(SWIFT_DEBUG_CHECKS)
 
   const ticks now = getticks();
   /* should be in ms */
@@ -2930,7 +2940,7 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
   /* Check qid. */
   if (qid >= nr_queues || qid < 0) error("Bad queue ID.");
 
-#if defined(SWIFT_DEBUG_CHECKS) && defined(WITH_MPI)
+#if defined(SWIFT_DEBUG_CHECKS)
     /* To be safe, initialize time of last task fetched from queue as now */
     /* There is no guarantee how long */
     /* sched->last_successful_task_fetch = getticks(); */
@@ -3055,11 +3065,15 @@ void scheduler_init(struct scheduler *s, struct space *space, int nr_tasks,
   s->tasks_ind = NULL;
   scheduler_reset(s, nr_tasks);
 
-#ifdef SWIFT_DEBUG_CHECKS
-  const ticks now = getticks();
-  if (s->last_successful_task_fetch < now) s->last_successful_task_fetch = now;
-
+#if defined (SWIFT_DEBUG_CHECKS)
   s->e = space->e;
+
+  lock_init(&s->last_task_fetch_lock);
+  lock_lock(&s->last_task_fetch_lock);
+  const ticks now = getticks();
+  s->last_successful_task_fetch = now;
+  lock_unlock(&s->last_successful_task_fetch);
+
 #endif
 }
 
