@@ -3178,7 +3178,7 @@ int cell_unskip_rt_tasks(struct cell *c, struct scheduler *s,
       } else if (cj_nodeID != nodeID) {
 
         /* If the local cell is active, receive data from the foreign cell. */
-        if (ci_active) {
+        if (ci_active && e->step != 3) {
           scheduler_activate_recv(s, cj->mpi.recv, task_subtype_rt_gradient);
           if (sub_cycle) {
             /* No RT sorts during sub-cycling */
