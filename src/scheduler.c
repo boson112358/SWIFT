@@ -2894,7 +2894,7 @@ void scheduler_abort_deadlock(struct scheduler *s) {
       clocks_diff_ticks(now, s->last_successful_task_fetch);
   message(
       "Detected what looks like a deadlock after %g ms of no new task being "
-      "fetched from queues. Dumping queues.",
+      "fetched from queues. Dumping diagnostic data.",
       idle_time);
 
   /* scheduler_dump_queues(s->e); */
