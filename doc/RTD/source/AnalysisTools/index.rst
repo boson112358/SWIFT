@@ -205,6 +205,8 @@ by using the size of the task data files to schedule parallel processes more
 effectively (the ``--weights`` argument).
 
 
+.. _dumperThread:
+
 Live internal inspection using the dumper thread
 ------------------------------------------------
 
@@ -234,6 +236,38 @@ The MPI logs follow the pattern using ``mpiuse-error-report-rank<n>.txt``.
 The ``.dump<.rank>`` files once seen are deleted, so dumping can be done more
 than once. For a non-MPI run the file is simply called ``.dump``, note for MPI
 you need to create one file per rank, so ``.dump.0``, ``.dump.1`` and so on.
+
+
+Deadlock Detector
+---------------------------
+
+When configured with ``--enable-debugging-checks``, the paramter 
+
+.. code-block:: yaml
+
+    Scheduler:
+        deadlock_waiting_time_s:   300.
+
+can be specified. It specifies the time (in seconds) the scheduler should wait
+for a new task to be executed during a simulation step (specifically: during a 
+call to ``engine_launch()``). After this time passes without any new tasks being
+run, the scheduler assumes that the code has deadlocked. It then dumps the same
+diagnostic data as :ref:`the dumper thread <dumperThread>` (active tasks, queued
+tasks, and memuse/MPIuse reports, if swift was configured with the corresponding
+flags) and aborts.
+
+A value of zero or a negative value for ``deadlock_waiting_time_s`` disable the 
+deadlock detector.
+
+You are likely well-advised to try and err on the upper side for the time to 
+choose for the ``deadlock_waiting_time_s`` parameter. A value in the order of 
+several (tens of) minutes is recommended. A too small value might cause your run to 
+errorneously crash and burn despite not really being deadlocked, just slow or 
+badly balanced.
+
+
+
+
 
 
 Neighbour search statistics
