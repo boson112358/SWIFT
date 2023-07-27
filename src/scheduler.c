@@ -2832,16 +2832,19 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
 #endif
 }
 
-/**
- * Has the scheduler been idle for too long?
- * Returns 1 if that is the case.
+ /**
+ * Abort the run if you're stuck doing nothing for too long.
+ * This function is intended to abort the mission if you're
+ * deadlocked somewhere and somehow. You might get core dumps
+ * this way. Alternatively, you might manually set a breakpoint
+ * with gdb when this function is called.
  *
  * @param s The #scheduler.
  */
-int scheduler_idle_too_long(struct scheduler *s) {
+void scheduler_check_deadlock(struct scheduler *s) {
 
 #if defined(SWIFT_DEBUG_CHECKS)
-  if (s->deadlock_waiting_time_ms <= 0.f) return 0;
+  if (s->deadlock_waiting_time_ms <= 0.f) return;
 
   lock_lock(&s->last_task_fetch_lock);
   const ticks now = getticks();
@@ -2856,51 +2859,25 @@ int scheduler_idle_too_long(struct scheduler *s) {
     s->last_successful_task_fetch = now;
     if (lock_unlock(&s->last_task_fetch_lock))
       error("Couldn't unlock last_successful_task_fetch");
-    return 0;
+    return;
   }
   if (lock_unlock(&s->last_task_fetch_lock))
     error("Couldn't unlock last_successful_task_fetch");
 
   /* ticks on different CPUs may disagree a bit. So we may end up
    * with last > now, and consequently negative idle time. */
-  const double idle_time = fabs(clocks_diff_ticks(now, last));
+  const ticks big = max(now, last);
+  const ticks small = min(now, last);
+  const double idle_time = clocks_diff_ticks(big, small);
 
-  if (idle_time > s->deadlock_waiting_time_ms) return 1;
-  return 0;
-
-#else
-  return 0;
-#endif
-}
-
-/**
- * Abort the run if you're stuck doing nothing for too long.
- * This function is intended to abort the mission if you're
- * deadlocked somewhere and somehow. You might get core dumps
- * this way. Alternatively, you might manually set a breakpoint
- * with gdb when this function is called.
- *
- * @param s The #scheduler.
- */
-void scheduler_abort_deadlock(struct scheduler *s) {
-
-#if defined(SWIFT_DEBUG_CHECKS)
-
-  if (s->deadlock_waiting_time_ms <= 0.f) return;
-
-  const ticks now = getticks();
-  /* should be in ms */
-  const double idle_time =
-      clocks_diff_ticks(now, s->last_successful_task_fetch);
-  message(
-      "Detected what looks like a deadlock after %g ms of no new task being "
-      "fetched from queues. Dumping diagnostic data.",
-      idle_time);
-
-  /* scheduler_dump_queues(s->e); */
-  engine_dump_diagnostic_data(s->e);
-  error("Aborting now.");
-
+  if (idle_time > s->deadlock_waiting_time_ms) {
+    message(
+        "Detected what looks like a deadlock after %g ms of no new task being "
+        "fetched from queues. Dumping diagnostic data. last=%lld now=%lld diff=%lld",
+        idle_time, last, now, now - last);
+    engine_dump_diagnostic_data(s->e);
+    error("Aborting now.");
+  }
 #endif
 }
 
@@ -2972,7 +2949,7 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
       pthread_mutex_unlock(&s->sleep_mutex);
     }
 
-    if (scheduler_idle_too_long(s)) scheduler_abort_deadlock(s);
+    scheduler_check_deadlock(s);
   }
 
   if (res != NULL) {
