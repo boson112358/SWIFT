@@ -2861,12 +2861,6 @@ int scheduler_idle_too_long(struct scheduler *s) {
   if (lock_unlock(&s->last_task_fetch_lock))
     error("Couldn't unlock last_successful_task_fetch");
 
-  if (last > now) {
-    message("THIS SHOULDN'T BE HAPPENING EITHER YO last=%lld now=%lld", last,
-            now);
-    return 0;
-  }
-
   /* ticks on different CPUs may disagree a bit. So we may end up
    * with last > now, and consequently negative idle time. */
   const double idle_time = fabs(clocks_diff_ticks(now, last));
@@ -2903,7 +2897,8 @@ void scheduler_abort_deadlock(struct scheduler *s) {
       "fetched from queues. Dumping queues.",
       idle_time);
 
-  scheduler_dump_queues(s->e);
+  /* scheduler_dump_queues(s->e); */
+  engine_dump_diagnostic_data(s->e);
   error("Aborting now.");
 
 #endif
