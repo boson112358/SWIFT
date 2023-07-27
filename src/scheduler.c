@@ -2812,7 +2812,8 @@ struct task *scheduler_unlock(struct scheduler *s, struct task *t) {
 }
 
 /**
- * Take note of the time at which a task was successfully fetched from the queue
+ * Take note of the time at which a task was successfully fetched from the
+ * queue.
  *
  * @param s The #scheduler.
  */
@@ -2821,21 +2822,10 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
 #if defined(SWIFT_DEBUG_CHECKS)
   if (s->deadlock_waiting_time_ms <= 0.f) return;
 
-  /* This procedure is not exactly threadsafe, and we can end up in situations
-   * where the last_successful_task_fetch is already "later" than the current
-   * time "now". The assumption is that users will specify a deadlock to be
-   * detected after no new task has been fetched for a couple of seconds or
-   * minutes, whereas these race conditions should occur on the order of
-   * microseconds. Also being in a situation where these race conditions can
-   * occur means we're not in a situation where we have a deadlock.
-   * So being off by a couple of microseconds doesn't matter, as
-   * long as the actual value written into the variable isn't some weird junk.
-   * Hence we use the atomic_cas to ensure no junk is written, and only keep the
-   * "later" time. */
-
   lock_lock(&s->last_task_fetch_lock);
   const ticks now = getticks();
-  s->last_successful_task_fetch = max(now, s->last_successful_task_fetch);
+  const ticks last = s->last_successful_task_fetch;
+  s->last_successful_task_fetch = max(now, last);
   if (lock_unlock(&s->last_task_fetch_lock))
     error("Couldn't unlock last_successful_task_fetch");
 
@@ -2853,16 +2843,16 @@ int scheduler_idle_too_long(struct scheduler *s) {
 #if defined(SWIFT_DEBUG_CHECKS)
   if (s->deadlock_waiting_time_ms <= 0.f) return 0;
 
-  /* Ensure that the first check each launch doesn't fail. There is
-   * no guarantee how long it will take from e.g. scheduler_start()
-   * or runner_main() to get to this point. A poorly chosen
-   * scheduler->deadlock_waiting_time_ms may abort a big run in places
-   * where there is no deadlock. Better safe than sorry. */
-
   lock_lock(&s->last_task_fetch_lock);
   const ticks now = getticks();
   const ticks last = s->last_successful_task_fetch;
   if (last == 0LL) {
+    /* Ensure that the first check each engine_launch doesn't fail. There is no
+     * guarantee how long it will take from the point where
+     * last_successful_task_fetch was reset to get to this point. A poorly
+     * chosen scheduler->deadlock_waiting_time_ms may abort a big run in places
+     * where there is no deadlock. Better safe than sorry, so at start-up, the
+     * last successful task fetch time is marked as 0. */
     s->last_successful_task_fetch = now;
     if (lock_unlock(&s->last_task_fetch_lock))
       error("Couldn't unlock last_successful_task_fetch");
@@ -2871,14 +2861,15 @@ int scheduler_idle_too_long(struct scheduler *s) {
   if (lock_unlock(&s->last_task_fetch_lock))
     error("Couldn't unlock last_successful_task_fetch");
 
-  if (last == 0) error("WHY");
   if (last > now) {
     message("THIS SHOULDN'T BE HAPPENING EITHER YO last=%lld now=%lld", last,
             now);
     return 0;
   }
 
-  const double idle_time = clocks_diff_ticks(now, last);
+  /* ticks on different CPUs may disagree a bit. So we may end up
+   * with last > now, and consequently negative idle time. */
+  const double idle_time = fabs(clocks_diff_ticks(now, last));
 
   if (idle_time > s->deadlock_waiting_time_ms) return 1;
   return 0;
@@ -2913,8 +2904,7 @@ void scheduler_abort_deadlock(struct scheduler *s) {
       idle_time);
 
   scheduler_dump_queues(s->e);
-  message("Aborting now.");
-  abort();
+  error("Aborting now.");
 
 #endif
 }
@@ -2936,12 +2926,6 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
 
   /* Check qid. */
   if (qid >= nr_queues || qid < 0) error("Bad queue ID.");
-
-#if defined(SWIFT_DEBUG_CHECKS)
-    /* To be safe, initialize time of last task fetched from queue as now */
-    /* There is no guarantee how long */
-    /* sched->last_successful_task_fetch = getticks(); */
-#endif
 
   /* Loop as long as there are tasks... */
   while (s->waiting > 0 && res == NULL) {
