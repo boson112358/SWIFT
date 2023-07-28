@@ -210,7 +210,7 @@ extern int engine_rank;
 #ifdef SWIFT_DEBUG_CHECKS
 
 /* Define which cells you'd like to trace. Make them 0 to turn this off. */
-#define PROBLEMCELL1 0
+#define PROBLEMCELL1 248
 #define PROBLEMCELL2 0
 
 /**
@@ -238,8 +238,8 @@ extern int engine_rank;
 #endif /* SWIFT_DEBUG_CHECKS */
 
 /* Define which particles you'd like to trace. */
-#define PROBLEMPART1 -1
-#define PROBLEMPART2 -1
+#define PROBLEMPART1 4338
+#define PROBLEMPART2 10672
 
 /**
  * @brief Macro to trace particles throughout the code.

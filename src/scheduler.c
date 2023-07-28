@@ -2982,7 +2982,10 @@ struct task *scheduler_gettask(struct scheduler *s, int qid,
 #ifdef SWIFT_DEBUG_TASKS
     res->rid = qid;
 #endif
+  message("Fetched task %s/%s cell %lld", taskID_names[res->type], subtaskID_names[res->subtype], res->ci->cellID);
+  fflush(stdout);
   }
+
 
   /* No milk today. */
   return res;

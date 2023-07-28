@@ -168,6 +168,8 @@ void *runner_main(void *data) {
       struct cell *ci = t->ci;
       struct cell *cj = t->cj;
 
+      message("Running task %s/%s cell %lld", taskID_names[t->type], subtaskID_names[t->subtype], ci->cellID);
+      fflush(stdout);
 #ifdef SWIFT_DEBUG_TASKS
       /* Mark the thread we run on */
       t->rid = r->cpuid;
@@ -250,8 +252,13 @@ void *runner_main(void *data) {
           else if (t->subtype == task_subtype_gradient)
             runner_dopair1_branch_gradient(r, ci, cj);
 #endif
-          else if (t->subtype == task_subtype_force)
+          else if (t->subtype == task_subtype_force){
+            celltrace(ci, "ci Entering the dragon");
+            celltrace(cj, "cj Entering the dragon");
             runner_dopair2_branch_force(r, ci, cj);
+            celltrace(ci, "ci Exiting the dragon");
+            celltrace(cj, "cj Exiting the dragon");
+          }
           else if (t->subtype == task_subtype_limiter)
             runner_dopair1_branch_limiter(r, ci, cj);
           else if (t->subtype == task_subtype_grav)
@@ -593,6 +600,8 @@ void *runner_main(void *data) {
       }
       r->active_time += (getticks() - task_beg);
 
+      message("Completed task %s/%s cell %lld", taskID_names[t->type], subtaskID_names[t->subtype], ci->cellID);
+      fflush(stdout);
 /* Mark that we have run this task on these cells */
 #ifdef SWIFT_DEBUG_CHECKS
       if (ci != NULL) {

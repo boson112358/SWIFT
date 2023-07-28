@@ -243,7 +243,10 @@ __attribute__((always_inline)) INLINE static float riemann_solve_brent(
   fc = fa;
   mflag = 1;
 
+  int counter = 0;
   while (!(fb == 0.0f) && (fabs(a - b) > error_tol * 0.5f * (a + b))) {
+    counter++;
+    if (counter > 1000) error ("Error in brent");
     if ((fa != fc) && (fb != fc)) /* Inverse quadratic interpolation */
       s = a * fb * fc / (fa - fb) / (fa - fc) +
           b * fa * fc / (fb - fa) / (fb - fc) +
@@ -331,6 +334,7 @@ __attribute__((always_inline)) INLINE static void riemann_solver_solve(
 
   /* check vacuum (generation) condition */
   if (riemann_is_vacuum(WL, WR, vL, vR, aL, aR)) {
+    message("GOT VACUUM"); fflush(stdout);
     riemann_solve_vacuum(WL, WR, vL, vR, aL, aR, Whalf, n_unit);
     return;
   }

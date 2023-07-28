@@ -968,6 +968,8 @@ void engine_print_task_counts(const struct engine *e) {
   const int nr_tasks = sched->nr_tasks;
   const struct task *const tasks = sched->tasks;
 
+  message("check A.1");
+
   /* Global tasks and cells when using MPI. */
 #ifdef WITH_MPI
   if (e->nodeID == 0 && e->total_nr_tasks > 0)
@@ -979,9 +981,11 @@ void engine_print_task_counts(const struct engine *e) {
   fflush(stdout);
 #endif
 
+  message("check A.2");
   /* Report value that can be used to estimate the task_per_cells parameter. */
   float tasks_per_cell = (float)nr_tasks / (float)e->s->tot_cells;
 
+  message("check A.3");
 #ifdef WITH_MPI
   message("Total = %d (per cell = %.2f)", nr_tasks, tasks_per_cell);
 
@@ -997,6 +1001,7 @@ void engine_print_task_counts(const struct engine *e) {
 #endif
   fflush(stdout);
 
+  message("check A.4");
   /* Count and print the number of each task type. */
   int counts[task_type_count + 1];
   for (int k = 0; k <= task_type_count; k++) counts[k] = 0;
@@ -1004,6 +1009,7 @@ void engine_print_task_counts(const struct engine *e) {
                  engine_do_tasks_count_mapper, (void *)tasks, nr_tasks,
                  sizeof(struct task), threadpool_auto_chunk_size, counts);
 
+  message("check A.5");
 #ifdef WITH_MPI
   printf("[%04i] %s engine_print_task_counts: task counts are [ %s=%i",
          e->nodeID, clocks_get_timesincestart(), taskID_names[0], counts[0]);
@@ -1011,19 +1017,32 @@ void engine_print_task_counts(const struct engine *e) {
   printf("%s engine_print_task_counts: task counts are [ %s=%i",
          clocks_get_timesincestart(), taskID_names[0], counts[0]);
 #endif
+  message("check A.6 %d", task_type_count);
   for (int k = 1; k < task_type_count; k++)
     printf(" %s=%i", taskID_names[k], counts[k]);
   printf(" skipped=%i ]\n", counts[task_type_count]);
   fflush(stdout);
-  message("nr_parts = %zu.", e->s->nr_parts);
-  message("nr_gparts = %zu.", e->s->nr_gparts);
-  message("nr_sink = %zu.", e->s->nr_sinks);
-  message("nr_sparts = %zu.", e->s->nr_sparts);
-  message("nr_bparts = %zu.", e->s->nr_bparts);
 
+  message("check A.7");
+  fflush(stdout);
+  message("nr_parts = %zu.", e->s->nr_parts);
+  fflush(stdout);
+  message("nr_gparts = %zu.", e->s->nr_gparts);
+  fflush(stdout);
+  message("nr_sink = %zu.", e->s->nr_sinks);
+  fflush(stdout);
+  message("nr_sparts = %zu.", e->s->nr_sparts);
+  fflush(stdout);
+  message("nr_bparts = %zu.", e->s->nr_bparts);
+  fflush(stdout);
+
+  message("check A.8");
+  fflush(stdout);
   if (e->verbose)
     message("took %.3f %s.", clocks_from_ticks(getticks() - tic),
             clocks_getunit());
+  message("check A.9");
+  fflush(stdout);
 }
 
 /**
@@ -1691,6 +1710,8 @@ void engine_skip_drift(struct engine *e) {
  */
 void engine_launch(struct engine *e, const char *call) {
   const ticks tic = getticks();
+  message("In engine launch");
+  fflush(stdout);
 
 #ifdef SWIFT_DEBUG_CHECKS
   /* Re-set all the cell task counters to 0 */
@@ -1702,23 +1723,42 @@ void engine_launch(struct engine *e, const char *call) {
     runner_reset_active_time(&e->runners[i]);
   }
 
+  message("Pre atomic_inc ");
+  fflush(stdout);
   /* Prepare the scheduler. */
   atomic_inc(&e->sched.waiting);
 
+  message("Pre Barrier ");
+  fflush(stdout);
   /* Cry havoc and let loose the dogs of war. */
   swift_barrier_wait(&e->run_barrier);
 
   /* Load the tasks. */
+  message("Starting scheduler");
+  fflush(stdout);
   scheduler_start(&e->sched);
+  message("Finished starting scheduler");
+  fflush(stdout);
 
   /* Remove the safeguard. */
   pthread_mutex_lock(&e->sched.sleep_mutex);
+  message("Post mutex lock");
+  fflush(stdout);
   atomic_dec(&e->sched.waiting);
+  message("Post atomic dec");
+  fflush(stdout);
   pthread_cond_broadcast(&e->sched.sleep_cond);
+  message("Post broadcast");
+  fflush(stdout);
   pthread_mutex_unlock(&e->sched.sleep_mutex);
+  message("Post mutes unlock");
+  fflush(stdout);
+
 
   /* Sit back and wait for the runners to come home. */
   swift_barrier_wait(&e->wait_barrier);
+  message("Post barrier wait");
+  fflush(stdout);
 
   /* Store the wallclock time */
   e->sched.total_ticks += getticks() - tic;
@@ -1742,6 +1782,7 @@ void engine_launch(struct engine *e, const char *call) {
   if (e->verbose)
     message("(%s) took %.3f %s.", call, clocks_from_ticks(getticks() - tic),
             clocks_getunit());
+  fflush(stdout);
 }
 
 /**
@@ -2484,6 +2525,7 @@ int engine_step(struct engine *e) {
       engine_drift_top_multipoles(e);
   }
 
+  message("Check4");
 #ifdef WITH_MPI
   /* Repartition the space amongst the nodes? */
   engine_repartition_trigger(e);
@@ -2491,6 +2533,7 @@ int engine_step(struct engine *e) {
 
   /* Prepare the tasks to be launched, rebuild or repartition if needed. */
   const int drifted_all = engine_prepare(e);
+  message("Check4.01");
 
   /* Dump local cells and active particle counts. */
   // dumpCells("cells", 1, 0, 0, 0, e->s, e->nodeID, e->step);
@@ -2499,6 +2542,8 @@ int engine_step(struct engine *e) {
   /* Print the number of active tasks */
   if (e->verbose) engine_print_task_counts(e);
 
+  message("Check4.02");
+  fflush(stdout);
   /* Check that we have the correct total mass in the top-level multipoles */
   long long num_gpart_mpole = 0;
   if (e->policy & engine_policy_self_gravity) {
@@ -2510,8 +2555,12 @@ int engine_step(struct engine *e) {
           "ngparts=%lld",
           num_gpart_mpole, e->total_nr_gparts);
   }
+  message("Check4.03");
+  fflush(stdout);
 #endif
 
+  message("Check4.1");
+  fflush(stdout);
 #ifdef SWIFT_GRAVITY_FORCE_CHECKS
   /* Do we need to check if all gparts are active? */
   if (e->force_checks_only_all_active) {
@@ -2547,6 +2596,8 @@ int engine_step(struct engine *e) {
   }
 #endif
 
+  message("Check4.2");
+  fflush(stdout);
   /* Re-compute the mesh forces? */
   if ((e->policy & engine_policy_self_gravity) && e->s->periodic &&
       e->mesh->ti_end_mesh_next == e->ti_current) {
@@ -2563,6 +2614,8 @@ int engine_step(struct engine *e) {
     e->step_props |= engine_step_prop_mesh;
   }
 
+  message("Check3");
+  fflush(stdout);
   /* Get current CPU times.*/
 #ifdef WITH_MPI
   double start_usertime = 0.0;
@@ -2577,6 +2630,8 @@ int engine_step(struct engine *e) {
     scheduler_write_cell_dependencies(&e->sched, e->verbose, e->step);
   }
 
+  message("Check2");
+  fflush(stdout);
   /* Write the task levels */
   if (e->sched.frequency_task_levels != 0 &&
       e->step % e->sched.frequency_task_levels == 0)
@@ -2587,6 +2642,8 @@ int engine_step(struct engine *e) {
      want to lose the data from the tasks) */
   space_reset_ghost_histograms(e->s);
 
+  message("Check1");
+  fflush(stdout);
   /* Start all the tasks. */
   TIMER_TIC;
   engine_launch(e, "tasks");

@@ -224,6 +224,15 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
   const float r = sqrtf(r2);
   const float r_inv = r ? 1.0f / r : 0.0f;
 
+  parttrace(pi, "CHECK SINGLE INSIDE PART Pi id=%lld", pi->id);
+  parttrace(pj, "CHECK SINGLE INSIDE PART Pj id=%lld", pj->id);
+  if (
+      ( (pi->id == (unsigned long long) PROBLEMPART1) && (pj->id == (unsigned long long) PROBLEMPART2) ) ||
+      ( (pi->id == (unsigned long long) PROBLEMPART2) && (pj->id == (unsigned long long) PROBLEMPART1) )
+      )
+    message("PROBLEMPARTS CHECK1");
+  fflush(stdout);
+
   /* Initialize local variables */
   float Bi[3][3];
   float Bj[3][3];
@@ -255,6 +264,11 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
   float dvdr = (pi->v[0] - pj->v[0]) * dx[0] + (pi->v[1] - pj->v[1]) * dx[1] +
                (pi->v[2] - pj->v[2]) * dx[2];
 
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK2");
+  fflush(stdout);
+
   /* Velocity on the axis linking the particles */
   /* This velocity will be the same as dvdr for MFM, so hopefully this gets
      optimised out. */
@@ -273,6 +287,11 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
   if (mode == 1) {
     pj->timestepvars.vmax = max(pj->timestepvars.vmax, vmax);
   }
+
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK3");
+  fflush(stdout);
 
   /* Compute kernel of pi. */
   float wi, wi_dx;
@@ -300,6 +319,11 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
   if (mode == 1 && Wi[0] > 0.0f) {
     pj->force.h_dt -= pi->conserved.mass * dvdr / Wi[0] * wj_dr;
   }
+
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK4");
+  fflush(stdout);
 
   /* Compute (square of) area */
   /* eqn. (7) */
@@ -338,11 +362,27 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
     Anorm2 = Anorm * Anorm * r2;
   }
 
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK5");
+  fflush(stdout);
+
   /* if the interface has no area, nothing happens and we return */
   /* continuing results in dividing by zero and NaN's... */
   if (Anorm2 == 0.0f) {
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK6.2 EARLY EXIT");
+  fflush(stdout);
+
+  /* if the interface has no area, nothing happens and we return */
     return;
   }
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK6.1 NO EARLY EXIT");
+  fflush(stdout);
+
 
   /* Compute the area */
   const float Anorm_inv = 1.0f / sqrtf(Anorm2);
@@ -363,6 +403,11 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
             Anorm, Vi, Vj, r);
   }
 #endif
+
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK7 ");
+  fflush(stdout);
 
   /* compute the normal vector of the interface */
   const float n_unit[3] = {A[0] * Anorm_inv, A[1] * Anorm_inv,
@@ -391,6 +436,11 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
 
   hydro_gradients_predict(pi, pj, hi, hj, dx, r, xij_i, Wi, Wj);
 
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK8 ");
+  fflush(stdout);
+
   /* Boost the primitive variables to the frame of reference of the interface */
   /* Note that velocities are indices 1-3 in W */
   Wi[1] -= vij[0];
@@ -403,11 +453,23 @@ __attribute__((always_inline)) INLINE static void runner_iact_fluxes_common(
   /* we don't need to rotate, we can use the unit vector in the Riemann problem
    * itself (see GIZMO) */
 
-  float totflux[5];
-  hydro_compute_flux(Wi, Wj, n_unit, vij, Anorm, totflux);
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK9 PRE COMPUTE FLUX");
+  fflush(stdout);
 
   /* get the time step for the flux exchange. This is always the smallest time
      step among the two particles */
+  float totflux[5];
+  hydro_compute_flux(Wi, Wj, n_unit, vij, Anorm, totflux);
+
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK10 POST COMPUTE FLUX");
+  fflush(stdout);
+
+
+
   const float mindt =
       (pj->flux.dt > 0.0f) ? fminf(pi->flux.dt, pj->flux.dt) : pi->flux.dt;
 
@@ -445,6 +507,13 @@ __attribute__((always_inline)) INLINE static void runner_iact_force(
     const float r2, const float dx[3], const float hi, const float hj,
     struct part *restrict pi, struct part *restrict pj, const float a,
     const float H) {
+
+  if ((pi->id == PROBLEMPART1 && pj->id == PROBLEMPART2) || (pi->id == PROBLEMPART2 && pj->id == PROBLEMPART1))
+    message("PROBLEMPARTS CHECK0");
+  fflush(stdout);
+  parttrace(pi, "CHECK SINGLE PART Pi id=%lld", pi->id);
+  parttrace(pj, "CHECK SINGLE PART Pj id=%lld", pj->id);
+
 
   runner_iact_fluxes_common(r2, dx, hi, hj, pi, pj, 1, a, H);
 }

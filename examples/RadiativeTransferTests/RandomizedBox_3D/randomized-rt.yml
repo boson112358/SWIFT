@@ -11,7 +11,7 @@ InternalUnitSystem:
 
 # Parameters governing the time integration
 TimeIntegration:
-  max_nr_rt_subcycles: 512
+  max_nr_rt_subcycles: 4
   time_begin: 0.    # The starting time of the simulation (in internal units).
   time_end:   0.1   # The end time of the simulation (in internal units).
   dt_min:     1.e-6 # The minimal time-step size of the simulation (in internal units).
@@ -46,6 +46,7 @@ Stars:
 
 Scheduler:
   dependency_graph_frequency:       0  # (Optional) Dumping frequency of the dependency graph. By default, writes only at the first step.
+  deadlock_waiting_time_s:          10. # (Optional) If runners didn't fetch a new task from a queue after this many seconds, assume swift deadlocked and abort. Needs --enable-debugging-checks and MPI to take effect.
 
 Restarts:
   delta_hours:        72        # (Optional) decimal hours between dumps of restart files.
