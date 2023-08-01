@@ -894,15 +894,14 @@ void engine_addtasks_recv_stars(struct engine *e, struct cell *c,
 #endif
     }
 
-
-  /* If we're running with RT, there may be foreign cells that
-   * don't receive any actual hydro particles. These cells however
-   * still need to have the "advance_cell_time" and "rt_collect_times"
-   * tasks in order for their time variables to be correct, especially
-   * during syb-cycles, where the cell times aren't communicated at the
-   * end of the step. So we create them now. */
-  const int with_rt = e->policy & engine_policy_rt;
-  if (with_rt) {
+    /* If we're running with RT, there may be foreign cells that
+     * don't receive any actual hydro particles. These cells however
+     * still need to have the "advance_cell_time" and "rt_collect_times"
+     * tasks in order for their time variables to be correct, especially
+     * during syb-cycles, where the cell times aren't communicated at the
+     * end of the step. So we create them now. */
+    const int with_rt = e->policy & engine_policy_rt;
+    if (with_rt) {
 #ifdef SWIFT_RT_DEBUG_CHECKS
       if (c->super == NULL)
         error("trying to add rt_advance_cell_time above super level...");
@@ -1046,14 +1045,14 @@ void engine_addtasks_recv_black_holes(struct engine *e, struct cell *c,
     t_feedback = scheduler_addtask(
         s, task_type_recv, task_subtype_bpart_feedback, c->mpi.tag, 0, c, NULL);
 
-  /* If we're running with RT, there may be foreign cells that
-   * don't receive any actual hydro particles. These cells however
-   * still need to have the "advance_cell_time" and "rt_collect_times"
-   * tasks in order for their time variables to be correct, especially
-   * during syb-cycles, where the cell times aren't communicated at the
-   * end of the step. So we create them now. */
-  const int with_rt = e->policy & engine_policy_rt;
-  if (with_rt) {
+    /* If we're running with RT, there may be foreign cells that
+     * don't receive any actual hydro particles. These cells however
+     * still need to have the "advance_cell_time" and "rt_collect_times"
+     * tasks in order for their time variables to be correct, especially
+     * during syb-cycles, where the cell times aren't communicated at the
+     * end of the step. So we create them now. */
+    const int with_rt = e->policy & engine_policy_rt;
+    if (with_rt) {
 #ifdef SWIFT_RT_DEBUG_CHECKS
       if (c->super == NULL)
         error("trying to add rt_advance_cell_time above super level...");
@@ -1087,7 +1086,6 @@ void engine_addtasks_recv_black_holes(struct engine *e, struct cell *c,
         scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, tend);
       }
     }
-
   }
 
   if (t_rho != NULL) {
@@ -1180,14 +1178,14 @@ void engine_addtasks_recv_gravity(struct engine *e, struct cell *c,
       scheduler_addunlock(s, l->t, tend);
     }
 
-  /* If we're running with RT, there may be foreign cells that
-   * don't receive any actual hydro particles. These cells however
-   * still need to have the "advance_cell_time" and "rt_collect_times"
-   * tasks in order for their time variables to be correct, especially
-   * during syb-cycles, where the cell times aren't communicated at the
-   * end of the step. So we create them now. */
-  const int with_rt = e->policy & engine_policy_rt;
-  if (with_rt) {
+    /* If we're running with RT, there may be foreign cells that
+     * don't receive any actual hydro particles. These cells however
+     * still need to have the "advance_cell_time" and "rt_collect_times"
+     * tasks in order for their time variables to be correct, especially
+     * during syb-cycles, where the cell times aren't communicated at the
+     * end of the step. So we create them now. */
+    const int with_rt = e->policy & engine_policy_rt;
+    if (with_rt) {
 #ifdef SWIFT_RT_DEBUG_CHECKS
       if (c->super == NULL)
         error("trying to add rt_advance_cell_time above super level...");
