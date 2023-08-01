@@ -32,6 +32,7 @@ Snapshots:
   scale_factor_first:  0.91  # Scale-factor of the first snaphot (cosmological run)
   time_first:          0.01  # Time of the first output (non-cosmological run) (in internal units)
   delta_time:          1.01  # Time difference between consecutive outputs (in internal units)
+  compression:         1
 
 Scheduler:
     links_per_tasks: 500
@@ -54,8 +55,7 @@ Gravity:
   max_physical_DM_softening:     0.0007    # Max physical DM softening length (in internal units).
   comoving_baryon_softening:     0.0026994 # Comoving DM softening length (in internal units).
   max_physical_baryon_softening: 0.0007    # Max physical DM softening length (in internal units).
-
-
+  
 # Parameters for the hydrodynamics scheme
 SPH:
   resolution_eta:        1.2348        # Target smoothing length in units of the mean inter-particle separation (1.2348 == 48Ngbs with the cubic spline kernel).
@@ -72,7 +72,6 @@ Stars:
   h_tolerance:           7e-3
   overwrite_birth_time:  1
   birth_time:            0.33333  # Pretend all the stars were born at z = 2
-
 
 # Parameters related to the initial conditions
 InitialConditions:
@@ -102,10 +101,3 @@ GEARRT:
   max_tchem_recursion: 10                           # (Optional) if > 0, sets the maximal recursion depth when re-computing the thermochemistry if |u_new/u_old - 1| > 0.1.
 
 
-# Parameters controlling restarts
-Restarts:
-  enable:             1          # (Optional) whether to enable dumping restarts at fixed intervals.
-  save:               0          # (Optional) whether to save copies of the previous set of restart files (named .prev)
-  delta_hours:        12.0       # (Optional) decimal hours between dumps of restart files.
-  stop_steps:         16         # (Optional) how many steps to process before checking if the <subdir>/stop file exists. When present the application will attempt to exit early, dumping restart files first.
- 
