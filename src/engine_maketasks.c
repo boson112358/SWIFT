@@ -815,8 +815,8 @@ void engine_addtasks_recv_hydro(
  * @param tend The top-level time-step communication #task.
  */
 
-void engine_addtasks_recv_rt_advance_cell_time(
-    struct engine *e, struct cell *c, struct task* const tend) {
+void engine_addtasks_recv_rt_advance_cell_time(struct engine *e, struct cell *c,
+                                               struct task *const tend) {
 
 #ifdef WITH_MPI
   struct scheduler *s = &e->sched;
@@ -832,8 +832,7 @@ void engine_addtasks_recv_rt_advance_cell_time(
     if (c->super == NULL)
       error("trying to add rt_advance_cell_time above super level...");
     /* TODO: this doen't need to remain */
-    if (c->top == NULL)
-      error("working on a cell with top == NULL??");
+    if (c->top == NULL) error("working on a cell with top == NULL??");
 #endif
 
     /* Create the rt collect times task at the top level, if it hasn't
@@ -845,9 +844,8 @@ void engine_addtasks_recv_rt_advance_cell_time(
      * already. also set all the dependencies */
     if (c->rt.rt_advance_cell_time == NULL) {
 
-      c->rt.rt_advance_cell_time =
-          scheduler_addtask(s, task_type_rt_advance_cell_time,
-                            task_subtype_none, 0, 0, c, NULL);
+      c->rt.rt_advance_cell_time = scheduler_addtask(
+          s, task_type_rt_advance_cell_time, task_subtype_none, 0, 0, c, NULL);
 
       /* don't run collect times before you run advance cell time */
       scheduler_addunlock(s, c->rt.rt_advance_cell_time,
@@ -869,8 +867,7 @@ void engine_addtasks_recv_rt_advance_cell_time(
   if (c->split)
     for (int k = 0; k < 8; k++)
       if (c->progeny[k] != NULL)
-        engine_addtasks_recv_rt_advance_cell_time(
-            e, c->progeny[k], tend);
+        engine_addtasks_recv_rt_advance_cell_time(e, c->progeny[k], tend);
 
 #else
   error("SWIFT was not compiled with MPI support.");
@@ -4391,16 +4388,15 @@ void engine_addtasks_recv_mapper(void *map_data, int num_elements,
        * end of the step. So we create them now. */
       if (with_rt) {
 #ifdef SWIFT_RT_DEBUG_CHECKS
-        if (ci->top == NULL)
-          error("Working on a cell with top == NULL??");
+        if (ci->top == NULL) error("Working on a cell with top == NULL??");
 #endif
 
         /* Create the RT collect times task at the top level, if it hasn't
          * already. */
         if (ci->top->rt.rt_collect_times == NULL) {
           ci->top->rt.rt_collect_times =
-              scheduler_addtask(&e->sched, task_type_rt_collect_times, task_subtype_none,
-                                0, 0, ci->top, NULL);
+              scheduler_addtask(&e->sched, task_type_rt_collect_times,
+                                task_subtype_none, 0, 0, ci->top, NULL);
         }
 
         /* Make sure the timestep task replacements, i.e. rt_advance_cell_time,
