@@ -2822,13 +2822,18 @@ void scheduler_mark_last_fetch(struct scheduler *s) {
 #if defined(SWIFT_DEBUG_CHECKS)
   if (s->deadlock_waiting_time_ms <= 0.f) return;
 
-  lock_lock(&s->last_task_fetch_lock);
-  const ticks now = getticks();
-  const ticks last = s->last_successful_task_fetch;
-  s->last_successful_task_fetch = max(now, last);
-  if (lock_unlock(&s->last_task_fetch_lock))
-    error("Couldn't unlock last_successful_task_fetch");
-
+  ticks now = getticks();
+  ticks last = s->last_successful_task_fetch;
+  while (atomic_cas(&s->last_successful_task_fetch, last, now ) != last) {
+    now = getticks();
+    last = s->last_successful_task_fetch;
+  }
+  /* lock_lock(&s->last_task_fetch_lock); */
+  /* const ticks now = getticks(); */
+  /* const ticks last = s->last_successful_task_fetch; */
+  /* s->last_successful_task_fetch = max(now, last); */
+  /* if (lock_unlock(&s->last_task_fetch_lock)) */
+  /*   error("Couldn't unlock last_successful_task_fetch"); */
 #endif
 }
 
@@ -2846,26 +2851,34 @@ void scheduler_check_deadlock(struct scheduler *s) {
 #if defined(SWIFT_DEBUG_CHECKS)
   if (s->deadlock_waiting_time_ms <= 0.f) return;
 
-  lock_lock(&s->last_task_fetch_lock);
-  const ticks now = getticks();
-  const ticks last = s->last_successful_task_fetch;
+  /* lock_lock(&s->last_task_fetch_lock); */
+  ticks now = getticks();
+  ticks last = s->last_successful_task_fetch;
+
   if (last == 0LL) {
+    /* TODO: check  documentation */
     /* Ensure that the first check each engine_launch doesn't fail. There is no
      * guarantee how long it will take from the point where
      * last_successful_task_fetch was reset to get to this point. A poorly
      * chosen scheduler->deadlock_waiting_time_ms may abort a big run in places
      * where there is no deadlock. Better safe than sorry, so at start-up, the
      * last successful task fetch time is marked as 0. */
-    s->last_successful_task_fetch = now;
-    if (lock_unlock(&s->last_task_fetch_lock))
-      error("Couldn't unlock last_successful_task_fetch");
+    /* s->last_successful_task_fetch = now; */
+    /* if (lock_unlock(&s->last_task_fetch_lock)) */
+    /*   error("Couldn't unlock last_successful_task_fetch"); */
+
+    while (atomic_cas(&s->last_successful_task_fetch, last, now ) != last) {
+      now = getticks();
+      last = s->last_successful_task_fetch;
+    }
     return;
   }
-  if (lock_unlock(&s->last_task_fetch_lock))
-    error("Couldn't unlock last_successful_task_fetch");
+  /* if (lock_unlock(&s->last_task_fetch_lock)) */
+  /*   error("Couldn't unlock last_successful_task_fetch"); */
 
   /* ticks on different CPUs may disagree a bit. So we may end up
-   * with last > now, and consequently negative idle time. */
+   * with last > now, and consequently negative idle time, which
+   * then overflows unsigned long longs and gives false positives. */
   const ticks big = max(now, last);
   const ticks small = min(now, last);
   const double idle_time = clocks_diff_ticks(big, small);
@@ -3021,12 +3034,12 @@ void scheduler_init(struct scheduler *s, struct space *space, int nr_tasks,
 #if defined(SWIFT_DEBUG_CHECKS)
   s->e = space->e;
 
-  lock_init(&s->last_task_fetch_lock);
+  /* lock_init(&s->last_task_fetch_lock); */
 
-  lock_lock(&s->last_task_fetch_lock);
+  /* lock_lock(&s->last_task_fetch_lock); */
   s->last_successful_task_fetch = 0LL;
-  if (lock_unlock(&s->last_task_fetch_lock))
-    error("Couldn't unlock last_task_fetch_lock");
+  /* if (lock_unlock(&s->last_task_fetch_lock)) */
+  /*   error("Couldn't unlock last_task_fetch_lock"); */
 
 #endif
 }

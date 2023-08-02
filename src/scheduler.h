@@ -138,7 +138,7 @@ struct scheduler {
   /* needed to dump queues on deadlock detection */
   struct engine *e;
 
-  swift_lock_type last_task_fetch_lock;
+  /* swift_lock_type last_task_fetch_lock; */
 
 #endif /* SWIFT_DEBUG_CHECKS */
 };
