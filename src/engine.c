@@ -1732,11 +1732,7 @@ void engine_launch(struct engine *e, const char *call) {
   e->sched.deadtime.waiting_ticks += getticks() - tic;
 
 #ifdef SWIFT_DEBUG_CHECKS
-  /* Reset deadlock detector time */
-  /* lock_lock(&e->sched.last_task_fetch_lock); */
   e->sched.last_successful_task_fetch = 0LL;
-  /* if (lock_unlock(&e->sched.last_task_fetch_lock)) */
-  /*   error("Couldn't unlock last_task_fetch_lock"); */
 #endif
 
   if (e->verbose)
