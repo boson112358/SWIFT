@@ -629,35 +629,13 @@ void engine_addtasks_recv_hydro(
 #ifdef SWIFT_RT_DEBUG_CHECKS
       if (c->super == NULL)
         error("trying to add rt_advance_cell_time above super level...");
-#endif
-
-      /* Create the RT collect times task at the top level, if it hasn't
-       * already. */
       if (c->top->rt.rt_collect_times == NULL) {
-        c->top->rt.rt_collect_times =
-            scheduler_addtask(s, task_type_rt_collect_times, task_subtype_none,
-                              0, 0, c->top, NULL);
+        error("rt_collect_times should exist already");
       }
-
-      /* Create the RT advance times task at the super level, if it hasn't
-       * already. Also set all the dependencies */
       if (c->super->rt.rt_advance_cell_time == NULL) {
-
-        c->super->rt.rt_advance_cell_time =
-            scheduler_addtask(s, task_type_rt_advance_cell_time,
-                              task_subtype_none, 0, 0, c->super, NULL);
-
-        /* Don't run collect times before you run advance cell time */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time,
-                            c->top->rt.rt_collect_times);
-
-        /* In normal steps, tend mustn't run before rt_advance_cell_time or the
-         * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
-         * have the tend tasks, so there's no worry about that. (Them missing is
-         * the reason we need the rt_advanced_cell_time to complete the
-         * sub-cycles in the first place) */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, tend);
+        error("RT_ADVANCE_CELL_TIMES SHOULD EXIST ALREADY");
       }
+#endif
 
       /* Make sure we sort after receiving RT data. The hydro sorts may or may
        * not be active. Blocking them with dependencies deadlocks with MPI. So
@@ -829,6 +807,77 @@ void engine_addtasks_recv_hydro(
 }
 
 /**
+ * @brief Add time rt_advance_cell_time tasks to super levels of
+ * foreign cells.
+ *
+ * @param e The #engine.
+ * @param c The foreign #cell.
+ * @param tend The top-level time-step communication #task.
+ */
+
+void engine_addtasks_recv_rt_advance_cell_time(
+    struct engine *e, struct cell *c, struct task* const tend) {
+
+#ifdef WITH_MPI
+  struct scheduler *s = &e->sched;
+
+  /* Early abort (are we below the level where tasks are)? */
+  if (!cell_get_flag(c, cell_flag_has_tasks)) return;
+  if (c->super != NULL && c->super != c) error("Why.");
+
+  /* Have we reached the super level? */
+  if (c->super == c) {
+
+#ifdef SWIFT_RT_DEBUG_CHECKS
+    if (c->super == NULL)
+      error("trying to add rt_advance_cell_time above super level...");
+    /* TODO: this doen't need to remain */
+    if (c->top == NULL)
+      error("working on a cell with top == NULL??");
+#endif
+
+    /* Create the rt collect times task at the top level, if it hasn't
+     * already. */
+    if (c->top->rt.rt_collect_times == NULL)
+      error("THIS SHOULD HAVE BEEN CREATED ALREADY????");
+
+    /* Create the rt advance times task at the super level, if it hasn't
+     * already. also set all the dependencies */
+    if (c->rt.rt_advance_cell_time == NULL) {
+
+      c->rt.rt_advance_cell_time =
+          scheduler_addtask(s, task_type_rt_advance_cell_time,
+                            task_subtype_none, 0, 0, c, NULL);
+
+      /* don't run collect times before you run advance cell time */
+      scheduler_addunlock(s, c->rt.rt_advance_cell_time,
+                          c->top->rt.rt_collect_times);
+
+      /* In normal steps, tend mustn't run before rt_advance_cell_time or the
+       * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
+       * have the tend tasks, so there's no worry about that. (Them missing is
+       * the reason we need the rt_advanced_cell_time to complete the
+       * sub-cycles in the first place) */
+      scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, tend);
+    }
+
+    /* we're done. */
+    return;
+  }
+
+  /* Recurse? */
+  if (c->split)
+    for (int k = 0; k < 8; k++)
+      if (c->progeny[k] != NULL)
+        engine_addtasks_recv_rt_advance_cell_time(
+            e, c->progeny[k], tend);
+
+#else
+  error("SWIFT was not compiled with MPI support.");
+#endif
+}
+
+/**
  * @brief Add recv tasks for stars pairs to a hierarchy of cells.
  *
  * @param e The #engine.
@@ -892,48 +941,6 @@ void engine_addtasks_recv_stars(struct engine *e, struct cell *c,
 #ifdef EXTRA_STAR_LOOPS
       scheduler_addunlock(s, t_sf_counts, t_prep2);
 #endif
-    }
-
-    /* If we're running with RT, there may be foreign cells that
-     * don't receive any actual hydro particles. These cells however
-     * still need to have the "advance_cell_time" and "rt_collect_times"
-     * tasks in order for their time variables to be correct, especially
-     * during syb-cycles, where the cell times aren't communicated at the
-     * end of the step. So we create them now. */
-    const int with_rt = e->policy & engine_policy_rt;
-    if (with_rt) {
-#ifdef SWIFT_RT_DEBUG_CHECKS
-      if (c->super == NULL)
-        error("trying to add rt_advance_cell_time above super level...");
-#endif
-
-      /* Create the RT collect times task at the top level, if it hasn't
-       * already. */
-      if (c->top->rt.rt_collect_times == NULL) {
-        c->top->rt.rt_collect_times =
-            scheduler_addtask(s, task_type_rt_collect_times, task_subtype_none,
-                              0, 0, c->top, NULL);
-      }
-
-      /* Create the RT advance times task at the super level, if it hasn't
-       * already. Also set all the dependencies */
-      if (c->super->rt.rt_advance_cell_time == NULL) {
-
-        c->super->rt.rt_advance_cell_time =
-            scheduler_addtask(s, task_type_rt_advance_cell_time,
-                              task_subtype_none, 0, 0, c->super, NULL);
-
-        /* Don't run collect times before you run advance cell time */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time,
-                            c->top->rt.rt_collect_times);
-
-        /* In normal steps, tend mustn't run before rt_advance_cell_time or the
-         * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
-         * have the tend tasks, so there's no worry about that. (Them missing is
-         * the reason we need the rt_advanced_cell_time to complete the
-         * sub-cycles in the first place) */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, tend);
-      }
     }
   }
 
@@ -1044,48 +1051,6 @@ void engine_addtasks_recv_black_holes(struct engine *e, struct cell *c,
 
     t_feedback = scheduler_addtask(
         s, task_type_recv, task_subtype_bpart_feedback, c->mpi.tag, 0, c, NULL);
-
-    /* If we're running with RT, there may be foreign cells that
-     * don't receive any actual hydro particles. These cells however
-     * still need to have the "advance_cell_time" and "rt_collect_times"
-     * tasks in order for their time variables to be correct, especially
-     * during syb-cycles, where the cell times aren't communicated at the
-     * end of the step. So we create them now. */
-    const int with_rt = e->policy & engine_policy_rt;
-    if (with_rt) {
-#ifdef SWIFT_RT_DEBUG_CHECKS
-      if (c->super == NULL)
-        error("trying to add rt_advance_cell_time above super level...");
-#endif
-
-      /* Create the RT collect times task at the top level, if it hasn't
-       * already. */
-      if (c->top->rt.rt_collect_times == NULL) {
-        c->top->rt.rt_collect_times =
-            scheduler_addtask(s, task_type_rt_collect_times, task_subtype_none,
-                              0, 0, c->top, NULL);
-      }
-
-      /* Create the RT advance times task at the super level, if it hasn't
-       * already. Also set all the dependencies */
-      if (c->super->rt.rt_advance_cell_time == NULL) {
-
-        c->super->rt.rt_advance_cell_time =
-            scheduler_addtask(s, task_type_rt_advance_cell_time,
-                              task_subtype_none, 0, 0, c->super, NULL);
-
-        /* Don't run collect times before you run advance cell time */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time,
-                            c->top->rt.rt_collect_times);
-
-        /* In normal steps, tend mustn't run before rt_advance_cell_time or the
-         * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
-         * have the tend tasks, so there's no worry about that. (Them missing is
-         * the reason we need the rt_advanced_cell_time to complete the
-         * sub-cycles in the first place) */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, tend);
-      }
-    }
   }
 
   if (t_rho != NULL) {
@@ -1176,48 +1141,6 @@ void engine_addtasks_recv_gravity(struct engine *e, struct cell *c,
     for (struct link *l = c->grav.grav; l != NULL; l = l->next) {
       scheduler_addunlock(s, t_grav, l->t);
       scheduler_addunlock(s, l->t, tend);
-    }
-
-    /* If we're running with RT, there may be foreign cells that
-     * don't receive any actual hydro particles. These cells however
-     * still need to have the "advance_cell_time" and "rt_collect_times"
-     * tasks in order for their time variables to be correct, especially
-     * during syb-cycles, where the cell times aren't communicated at the
-     * end of the step. So we create them now. */
-    const int with_rt = e->policy & engine_policy_rt;
-    if (with_rt) {
-#ifdef SWIFT_RT_DEBUG_CHECKS
-      if (c->super == NULL)
-        error("trying to add rt_advance_cell_time above super level...");
-#endif
-
-      /* Create the RT collect times task at the top level, if it hasn't
-       * already. */
-      if (c->top->rt.rt_collect_times == NULL) {
-        c->top->rt.rt_collect_times =
-            scheduler_addtask(s, task_type_rt_collect_times, task_subtype_none,
-                              0, 0, c->top, NULL);
-      }
-
-      /* Create the RT advance times task at the super level, if it hasn't
-       * already. Also set all the dependencies */
-      if (c->super->rt.rt_advance_cell_time == NULL) {
-
-        c->super->rt.rt_advance_cell_time =
-            scheduler_addtask(s, task_type_rt_advance_cell_time,
-                              task_subtype_none, 0, 0, c->super, NULL);
-
-        /* Don't run collect times before you run advance cell time */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time,
-                            c->top->rt.rt_collect_times);
-
-        /* In normal steps, tend mustn't run before rt_advance_cell_time or the
-         * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
-         * have the tend tasks, so there's no worry about that. (Them missing is
-         * the reason we need the rt_advanced_cell_time to complete the
-         * sub-cycles in the first place) */
-        scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, tend);
-      }
     }
   }
 
@@ -4459,6 +4382,33 @@ void engine_addtasks_recv_mapper(void *map_data, int num_elements,
       tend = scheduler_addtask(&e->sched, task_type_recv, task_subtype_tend,
                                ci->mpi.tag, 0, ci, NULL);
       engine_addlink(e, &ci->mpi.recv, tend);
+
+      /* If we're running with RT, there may be foreign cells that
+       * don't receive any actual hydro particles. These cells however
+       * still need to have the "advance_cell_time" and "rt_collect_times"
+       * tasks in order for their time variables to be correct, especially
+       * during syb-cycles, where the cell times aren't communicated at the
+       * end of the step. So we create them now. */
+      if (with_rt) {
+#ifdef SWIFT_RT_DEBUG_CHECKS
+        if (ci->top == NULL)
+          error("Working on a cell with top == NULL??");
+#endif
+
+        /* Create the RT collect times task at the top level, if it hasn't
+         * already. */
+        if (ci->top->rt.rt_collect_times == NULL) {
+          ci->top->rt.rt_collect_times =
+              scheduler_addtask(&e->sched, task_type_rt_collect_times, task_subtype_none,
+                                0, 0, ci->top, NULL);
+        }
+
+        /* Make sure the timestep task replacements, i.e. rt_advance_cell_time,
+         * exists on the super levels regardless of proxy type.
+         * This needs to be done before engine_addtasks_recv_hydro so we
+         * can set appropriate unlocks there without re-creating tasks. */
+        engine_addtasks_recv_rt_advance_cell_time(e, ci, tend);
+      }
     }
 #endif
 
