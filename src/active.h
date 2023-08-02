@@ -199,22 +199,7 @@ __attribute__((always_inline)) INLINE static int cell_is_rt_active(
     struct cell *c, const struct engine *e) {
 
 #ifdef SWIFT_DEBUG_CHECKS
-  /* Each cell doing RT needs to have the rt_advance_cell_time task in its
-   * super cell (same for rt_collect_times for top level cell). This is also
-   * true for foreign cells.
-   * If a cell's super/top cell's don't have either of these tasks, it's not
-   * doing RT. This can happen for foreign cells which have been sent to a
-   * foreign node for other interactions, e.g. gravity. However, foreign cells
-   * may have tasks on levels below the rt_advance_cell_time, so allow for that
-   * exception in this check. */
-
-  int cell_does_rt = 1;
-  if (c->super != NULL) {
-    cell_does_rt = c->super->rt.rt_advance_cell_time != NULL;
-  } else {
-    cell_does_rt = c->top->rt.rt_collect_times != NULL;
-  }
-  if (cell_does_rt && (c->rt.ti_rt_end_min < e->ti_current_subcycle)) {
+  if (c->rt.ti_rt_end_min < e->ti_current_subcycle) {
     error(
         "cell %lld in an impossible time-zone! c->ti_rt_end_min=%lld (t=%e) "
         "and e->ti_current=%lld (t=%e, a=%e) c->nodeID=%d ACT=%d count=%d",
