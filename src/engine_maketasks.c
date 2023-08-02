@@ -626,7 +626,9 @@ void engine_addtasks_recv_hydro(
           s, task_type_recv, task_subtype_rt_transport, c->mpi.tag, 0, c, NULL);
       /* Also create the rt_advance_cell_time tasks for the foreign cells
        * for the sub-cycling. */
-#ifdef SWIFT_RT_DEBUG_CHECKS
+
+/* TODO: REMOVE THIS AFTER TESTING */
+/* #ifdef SWIFT_RT_DEBUG_CHECKS */
       if (c->super == NULL)
         error("trying to add rt_advance_cell_time above super level...");
       if (c->top->rt.rt_collect_times == NULL) {
@@ -635,7 +637,7 @@ void engine_addtasks_recv_hydro(
       if (c->super->rt.rt_advance_cell_time == NULL) {
         error("RT_ADVANCE_CELL_TIMES SHOULD EXIST ALREADY");
       }
-#endif
+/* #endif */
 
       /* Make sure we sort after receiving RT data. The hydro sorts may or may
        * not be active. Blocking them with dependencies deadlocks with MPI. So
@@ -808,7 +810,15 @@ void engine_addtasks_recv_hydro(
 
 /**
  * @brief Add time rt_advance_cell_time tasks to super levels of
- * foreign cells.
+ * foreign cells. This function recurses down to the super level
+ * and creates the required tasks, and adds a dependency between
+ * rt_advance_cell_time, rt_collect_times, and tend tasks.
+ *
+ * In normal steps, tend mustn't run before rt_advance_cell_time or the
+ * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
+ * have the tend tasks, so there's no worry about that. (Them missing is
+ * the reason we need the rt_advanced_cell_time to complete the
+ * sub-cycles in the first place)
  *
  * @param e The #engine.
  * @param c The foreign #cell.
@@ -823,22 +833,25 @@ void engine_addtasks_recv_rt_advance_cell_time(struct engine *e, struct cell *c,
 
   /* Early abort (are we below the level where tasks are)? */
   if (!cell_get_flag(c, cell_flag_has_tasks)) return;
-  if (c->super != NULL && c->super != c) error("Why.");
+
+/* TODO: this is temporary testing */
+if (c->super != NULL && c->super != c) error("Why.");
 
   /* Have we reached the super level? */
   if (c->super == c) {
 
-#ifdef SWIFT_RT_DEBUG_CHECKS
+/* TODO: REMOVE THIS AFTER TESTING */
+/* #ifdef SWIFT_RT_DEBUG_CHECKS */
     if (c->super == NULL)
       error("trying to add rt_advance_cell_time above super level...");
     /* TODO: this doen't need to remain */
     if (c->top == NULL) error("working on a cell with top == NULL??");
-#endif
 
     /* Create the rt collect times task at the top level, if it hasn't
      * already. */
     if (c->top->rt.rt_collect_times == NULL)
       error("THIS SHOULD HAVE BEEN CREATED ALREADY????");
+/* #endif */
 
     /* Create the rt advance times task at the super level, if it hasn't
      * already. also set all the dependencies */
@@ -851,11 +864,7 @@ void engine_addtasks_recv_rt_advance_cell_time(struct engine *e, struct cell *c,
       scheduler_addunlock(s, c->rt.rt_advance_cell_time,
                           c->top->rt.rt_collect_times);
 
-      /* In normal steps, tend mustn't run before rt_advance_cell_time or the
-       * cell's ti_rt_end_min will be updated wrongly. In sub-cycles, we don't
-       * have the tend tasks, so there's no worry about that. (Them missing is
-       * the reason we need the rt_advanced_cell_time to complete the
-       * sub-cycles in the first place) */
+      /* Add the dependency */
       scheduler_addunlock(s, c->super->rt.rt_advance_cell_time, tend);
     }
 
@@ -4233,6 +4242,10 @@ struct cell_type_pair {
 };
 
 /**
+ * @brief Recurse down to the super level and add a dependency between
+ * rt_advance_cell_time and tend tasks. Note: This function is intended
+ * for the sending side, i.e. for local cells.
+ *
  * If we're running with RT subcycling, we need to ensure that nothing
  * is sent before the advance cell time task has finished. This may
  * overwrite the correct cell times, particularly so when we're sending
@@ -4398,6 +4411,9 @@ void engine_addtasks_recv_mapper(void *map_data, int num_elements,
               scheduler_addtask(&e->sched, task_type_rt_collect_times,
                                 task_subtype_none, 0, 0, ci->top, NULL);
         }
+        /* We don't need rt_collect_times -> tend dependencies. They never
+         * run at the same time. rt_collect_times runs in sub-cycles,
+         * tend runs on normal steps. */
 
         /* Make sure the timestep task replacements, i.e. rt_advance_cell_time,
          * exists on the super levels regardless of proxy type.
