@@ -627,8 +627,7 @@ void engine_addtasks_recv_hydro(
       /* Also create the rt_advance_cell_time tasks for the foreign cells
        * for the sub-cycling. */
 
-/* TODO: REMOVE THIS AFTER TESTING */
-/* #ifdef SWIFT_RT_DEBUG_CHECKS */
+#ifdef SWIFT_RT_DEBUG_CHECKS
       if (c->super == NULL)
         error("trying to add rt_advance_cell_time above super level...");
       if (c->top->rt.rt_collect_times == NULL) {
@@ -637,7 +636,7 @@ void engine_addtasks_recv_hydro(
       if (c->super->rt.rt_advance_cell_time == NULL) {
         error("RT_ADVANCE_CELL_TIMES SHOULD EXIST ALREADY");
       }
-/* #endif */
+#endif
 
       /* Make sure we sort after receiving RT data. The hydro sorts may or may
        * not be active. Blocking them with dependencies deadlocks with MPI. So
@@ -834,24 +833,16 @@ void engine_addtasks_recv_rt_advance_cell_time(struct engine *e, struct cell *c,
   /* Early abort (are we below the level where tasks are)? */
   if (!cell_get_flag(c, cell_flag_has_tasks)) return;
 
-/* TODO: this is temporary testing */
-if (c->super != NULL && c->super != c) error("Why.");
-
   /* Have we reached the super level? */
   if (c->super == c) {
 
-/* TODO: REMOVE THIS AFTER TESTING */
-/* #ifdef SWIFT_RT_DEBUG_CHECKS */
+#ifdef SWIFT_RT_DEBUG_CHECKS
     if (c->super == NULL)
       error("trying to add rt_advance_cell_time above super level...");
-    /* TODO: this doen't need to remain */
     if (c->top == NULL) error("working on a cell with top == NULL??");
-
-    /* Create the rt collect times task at the top level, if it hasn't
-     * already. */
     if (c->top->rt.rt_collect_times == NULL)
-      error("THIS SHOULD HAVE BEEN CREATED ALREADY????");
-/* #endif */
+      error("rt_collect_times should have been created already????");
+#endif
 
     /* Create the rt advance times task at the super level, if it hasn't
      * already. also set all the dependencies */
