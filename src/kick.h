@@ -210,7 +210,6 @@ __attribute__((always_inline)) INLINE static void kick_gpart(
  * debugging checks).
  * @param ti_end_mesh The ending (integer) time of the mesh kick (for debugging
  * checks).
- * @param with_rt Are we running with RT?
  */
 __attribute__((always_inline)) INLINE static void kick_part(
     struct part *restrict p, struct xpart *restrict xp,
@@ -220,8 +219,7 @@ __attribute__((always_inline)) INLINE static void kick_part(
     const struct hydro_props *hydro_props,
     const struct entropy_floor_properties *floor_props,
     const integertime_t ti_start, const integertime_t ti_end,
-    const integertime_t ti_start_mesh, const integertime_t ti_end_mesh,
-    const int with_rt) {
+    const integertime_t ti_start_mesh, const integertime_t ti_end_mesh) {
 
 #ifdef SWIFT_DEBUG_CHECKS
   if (p->ti_kick != ti_start)
@@ -271,9 +269,8 @@ __attribute__((always_inline)) INLINE static void kick_part(
   /* Extra kick work (thermal quantities etc.) */
   /* for the GEAR RT, we need to do this before we update
    * the particle masses in hydro_kick_extra */
-  if (with_rt)
-    rt_kick_extra(p, dt_kick_therm, dt_kick_grav, dt_kick_hydro, dt_kick_corr,
-                  cosmo, hydro_props);
+  rt_kick_extra(p, dt_kick_therm, dt_kick_grav, dt_kick_hydro, dt_kick_corr,
+                cosmo, hydro_props);
   hydro_kick_extra(p, xp, dt_kick_therm, dt_kick_grav, dt_kick_mesh_grav,
                    dt_kick_hydro, dt_kick_corr, cosmo, hydro_props,
                    floor_props);

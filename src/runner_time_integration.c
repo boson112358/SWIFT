@@ -92,7 +92,6 @@ void runner_do_kick1(struct runner *r, struct cell *c, const int timer) {
   const struct entropy_floor_properties *entropy_floor = e->entropy_floor;
   const int periodic = e->s->periodic;
   const int with_cosmology = (e->policy & engine_policy_cosmology);
-  const int with_rt = (e->policy & engine_policy_rt);
   struct part *restrict parts = c->hydro.parts;
   struct xpart *restrict xparts = c->hydro.xparts;
   struct gpart *restrict gparts = c->grav.parts;
@@ -180,8 +179,7 @@ void runner_do_kick1(struct runner *r, struct cell *c, const int timer) {
         /* Do the kick */
         kick_part(p, xp, dt_kick_hydro, dt_kick_grav, dt_kick_mesh_grav,
                   dt_kick_therm, dt_kick_corr, cosmo, hydro_props,
-                  entropy_floor, ti_begin, ti_end, ti_begin_mesh, ti_end_mesh,
-                  with_rt);
+                  entropy_floor, ti_begin, ti_end, ti_begin_mesh, ti_end_mesh);
 
         /* Update the accelerations to be used in the drift for hydro */
         if (p->gpart != NULL) {
@@ -366,7 +364,6 @@ void runner_do_kick2(struct runner *r, struct cell *c, const int timer) {
   const struct pressure_floor_props *pressure_floor = e->pressure_floor_props;
   const struct entropy_floor_properties *entropy_floor = e->entropy_floor;
   const int with_cosmology = (e->policy & engine_policy_cosmology);
-  const int with_rt = (e->policy & engine_policy_rt);
   const int periodic = e->s->periodic;
   const int count = c->hydro.count;
   const int gcount = c->grav.count;
@@ -455,8 +452,7 @@ void runner_do_kick2(struct runner *r, struct cell *c, const int timer) {
         /* Finish the time-step with a second half-kick */
         kick_part(p, xp, dt_kick_hydro, dt_kick_grav, dt_kick_mesh_grav,
                   dt_kick_therm, dt_kick_corr, cosmo, hydro_props,
-                  entropy_floor, ti_begin, ti_end, ti_begin_mesh, ti_end_mesh,
-                  with_rt);
+                  entropy_floor, ti_begin, ti_end, ti_begin_mesh, ti_end_mesh);
 
 #ifdef SWIFT_DEBUG_CHECKS
         /* Check that kick and the drift are synchronized */
