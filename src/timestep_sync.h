@@ -44,6 +44,7 @@ INLINE static void timestep_process_sync_part(struct part *p, struct xpart *xp,
                                               const struct cosmology *cosmo) {
 
   const int with_cosmology = (e->policy & engine_policy_cosmology);
+  const int with_rt = (e->policy & engine_policy_rt);
   const integertime_t ti_current = e->ti_current;
   const timebin_t max_active_bin = e->max_active_bin;
   const timebin_t min_active_bin = e->min_active_bin;
@@ -112,7 +113,7 @@ INLINE static void timestep_process_sync_part(struct part *p, struct xpart *xp,
   kick_part(p, xp, dt_kick_hydro, dt_kick_grav, /*dt_kick_mesh_grav=*/0.,
             dt_kick_therm, dt_kick_corr, e->cosmology, e->hydro_properties,
             e->entropy_floor, ti_end_half_old, old_ti_beg,
-            /*ti_start_mesh=*/-1, /*ti_end_mesh=*/-1);
+            /*ti_start_mesh=*/-1, /*ti_end_mesh=*/-1, with_rt);
 
   /* We can now produce a kick to the current point */
   dt_kick_hydro = kick_get_hydro_kick_dt(new_ti_beg, new_ti_end, time_base,
@@ -129,7 +130,7 @@ INLINE static void timestep_process_sync_part(struct part *p, struct xpart *xp,
   kick_part(p, xp, dt_kick_hydro, dt_kick_grav, /*dt_kick_mesh_grav=*/0.,
             dt_kick_therm, dt_kick_corr, e->cosmology, e->hydro_properties,
             e->entropy_floor, new_ti_beg, new_ti_end,
-            /*ti_start_mesh=*/-1, /*ti_end_mesh=*/-1);
+            /*ti_start_mesh=*/-1, /*ti_end_mesh=*/-1, with_rt);
 
   /* The particle is now ready to compute its new time-step size and for the
    * next kick */
