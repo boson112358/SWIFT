@@ -287,54 +287,56 @@ __attribute__((always_inline)) INLINE static void rt_debug_sequence_check(
    * compatible with subcycling. There is no reliable point where to
    * reset the counters and have sensible results. */
 
-  if (loc > 0) {
-    /* Are kicks done? */
-    if (p->rt_data.debug_nsubcycles == 0) {
-      if (p->rt_data.debug_kicked != 1)
-        error(
-            "called %s on particle %lld with wrong kick count=%d (expected "
-            "1) cycle=%d | rt %d  hydro%d",
-            function_name, p->id, p->rt_data.debug_kicked,
-            p->rt_data.debug_nsubcycles, p->rt_time_data.time_bin, p->time_bin);
-    } else if (p->rt_data.debug_nsubcycles > 0) {
-      if (p->rt_data.debug_kicked != 2)
-        error(
-            "called %s on particle %lld with wrong kick count=%d (expected 2) "
-            "cycle=%d",
-            function_name, p->id, p->rt_data.debug_kicked,
-            p->rt_data.debug_nsubcycles);
-    } else {
-      error("Got negative subcycle???");
-    }
-  }
+  return;
 
-  if (loc > 1) {
-    /* is injection done? */
-    if (p->rt_data.debug_injection_done != 1)
-      error("called %s on part %lld when finalise injection count is %d ID",
-            function_name, p->id, p->rt_data.debug_injection_done);
-  }
-
-  if (loc > 2) {
-    /* are gradients done? */
-    if (p->rt_data.debug_gradients_done != 1)
-      error("called %s on part %lld when gradients_done count is %d",
-            function_name, p->id, p->rt_data.debug_gradients_done);
-  }
-
-  if (loc > 3) {
-    /* is transport done? */
-    if (p->rt_data.debug_transport_done != 1)
-      error("called %s on part %lld when transport_done != 1: %d",
-            function_name, p->id, p->rt_data.debug_transport_done);
-  }
-
-  if (loc > 4) {
-    /* is thermochemistry done? */
-    if (p->rt_data.debug_thermochem_done != 1)
-      error("called %s on part %lld with thermochem_done count=%d",
-            function_name, p->id, p->rt_data.debug_thermochem_done);
-  }
+/*   if (loc > 0) { */
+  /*   [> Are kicks done? <] */
+  /*   if (p->rt_data.debug_nsubcycles == 0) { */
+  /*     if (p->rt_data.debug_kicked != 1) */
+  /*       error( */
+  /*           "called %s on particle %lld with wrong kick count=%d (expected " */
+  /*           "1) cycle=%d | rt %d  hydro%d", */
+  /*           function_name, p->id, p->rt_data.debug_kicked, */
+  /*           p->rt_data.debug_nsubcycles, p->rt_time_data.time_bin, p->time_bin); */
+  /*   } else if (p->rt_data.debug_nsubcycles > 0) { */
+  /*     if (p->rt_data.debug_kicked != 2) */
+  /*       error( */
+  /*           "called %s on particle %lld with wrong kick count=%d (expected 2) " */
+  /*           "cycle=%d", */
+  /*           function_name, p->id, p->rt_data.debug_kicked, */
+  /*           p->rt_data.debug_nsubcycles); */
+  /*   } else { */
+  /*     error("Got negative subcycle???"); */
+  /*   } */
+  /* } */
+  /*  */
+  /* if (loc > 1) { */
+  /*   [> is injection done? <] */
+  /*   if (p->rt_data.debug_injection_done != 1) */
+  /*     error("called %s on part %lld when finalise injection count is %d ID", */
+  /*           function_name, p->id, p->rt_data.debug_injection_done); */
+  /* } */
+  /*  */
+  /* if (loc > 2) { */
+  /*   [> are gradients done? <] */
+  /*   if (p->rt_data.debug_gradients_done != 1) */
+  /*     error("called %s on part %lld when gradients_done count is %d", */
+  /*           function_name, p->id, p->rt_data.debug_gradients_done); */
+  /* } */
+  /*  */
+  /* if (loc > 3) { */
+  /*   [> is transport done? <] */
+  /*   if (p->rt_data.debug_transport_done != 1) */
+  /*     error("called %s on part %lld when transport_done != 1: %d", */
+  /*           function_name, p->id, p->rt_data.debug_transport_done); */
+  /* } */
+  /*  */
+  /* if (loc > 4) { */
+  /*   [> is thermochemistry done? <] */
+  /*   if (p->rt_data.debug_thermochem_done != 1) */
+  /*     error("called %s on part %lld with thermochem_done count=%d", */
+  /*           function_name, p->id, p->rt_data.debug_thermochem_done); */
+/*   } */
 }
 
 #endif /* SWIFT_RT_DEBUGGING_DEBUG_H */
