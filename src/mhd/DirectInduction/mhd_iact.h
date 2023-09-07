@@ -162,6 +162,17 @@ __attribute__((always_inline)) INLINE static void runner_iact_mhd_gradient(
       mi * over_rho2_j * rhoj * wj_dr * r_inv * dB_cross_dx[1];
   pj->mhd_data.curl_B[2] +=
       mi * over_rho2_j * rhoj * wj_dr * r_inv * dB_cross_dx[2];
+
+/* Calculate error magnitude */
+  pi->mhd_data.mean_SPH_err += mj * over_rho2_i * rhoi * wj;
+  pi->mhd_data.mean_grad_SPH_err[0] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[0];
+  pi->mhd_data.mean_grad_SPH_err[1] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[1];
+  pi->mhd_data.mean_grad_SPH_err[2] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[2];
+  pj->mhd_data.mean_SPH_err += mi * over_rho2_j * rhoj * wi;
+  pj->mhd_data.mean_grad_SPH_err[0] += mi * over_rho2_j * rhoj * wi_dr * r_inv * dx[0];
+  pj->mhd_data.mean_grad_SPH_err[1] += mi * over_rho2_j * rhoj * wi_dr * r_inv * dx[1];
+  pj->mhd_data.mean_grad_SPH_err[2] += mi * over_rho2_j * rhoj * wi_dr * r_inv * dx[2];
+
 }
 
 /**
@@ -223,12 +234,12 @@ runner_iact_nonsym_mhd_gradient(const float r2, const float dx[3],
   const float wi_dr = hid_inv * wi_dx;
 
   /* Get the kernel for hj. */
-  // const float hj_inv = 1.0f / hj;
-  // const float hjd_inv = pow_dimension_plus_one(hj_inv); /* 1/h^(d+1) */
-  // const float xj = r * hj_inv;
-  // float wj, wj_dx;
-  // kernel_deval(xj, &wj, &wj_dx);
-  // const float wj_dr = hjd_inv * wj_dx;
+  const float hj_inv = 1.0f / hj;
+  const float hjd_inv = pow_dimension_plus_one(hj_inv); /* 1/h^(d+1) */
+  const float xj = r * hj_inv;
+  float wj, wj_dx;
+  kernel_deval(xj, &wj, &wj_dx);
+  const float wj_dr = hjd_inv * wj_dx;
 
   /* Variable smoothing length term */
   const float f_ij = 1.f - pi->force.f / mj;
@@ -259,6 +270,13 @@ runner_iact_nonsym_mhd_gradient(const float r2, const float dx[3],
       mj * over_rho2_i * rhoi * wi_dr * r_inv * dB_cross_dx[1];
   pi->mhd_data.curl_B[2] +=
       mj * over_rho2_i * rhoi * wi_dr * r_inv * dB_cross_dx[2];
+
+/* Calculate error magnitude */
+  pi->mhd_data.mean_SPH_err += mj * over_rho2_i * rhoi * wj;
+  pi->mhd_data.mean_grad_SPH_err[0] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[0];
+  pi->mhd_data.mean_grad_SPH_err[1] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[1];
+  pi->mhd_data.mean_grad_SPH_err[2] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[2];
+
 }
 
 /**
@@ -452,6 +470,23 @@ __attribute__((always_inline)) INLINE static void runner_iact_mhd_force(
                        Bri * r_inv * Bj[2] * tensile_correction_scale_j;
   sph_acc_term_j[2] -= monopole_beta * over_rho2_j * wj_dr * permeability_inv *
                        Brj * r_inv * Bj[2] * tensile_correction_scale_j;
+
+ /* Save mag force */
+     pi->mhd_data.tot_mag_F[0] -= mj * sph_acc_term_i[0];
+     pi->mhd_data.tot_mag_F[1] -= mj * sph_acc_term_i[1];
+     pi->mhd_data.tot_mag_F[2] -= mj * sph_acc_term_i[2];
+
+     pj->mhd_data.tot_mag_F[0] -= mi * sph_acc_term_j[0];
+     pj->mhd_data.tot_mag_F[1] -= mi * sph_acc_term_j[1];
+     pj->mhd_data.tot_mag_F[2] -= mi * sph_acc_term_j[2];
+
+     pi->mhd_data.tot_F[0] = pi->a_hydro[0];
+     pi->mhd_data.tot_F[1] = pi->a_hydro[1];
+     pi->mhd_data.tot_F[2] = pi->a_hydro[2];
+
+     pj->mhd_data.tot_F[0] = pj->a_hydro[0];
+     pj->mhd_data.tot_F[1] = pj->a_hydro[1];
+     pj->mhd_data.tot_F[2] = pj->a_hydro[2];
 
   /* Use the force Luke ! */
   pi->a_hydro[0] -= mj * sph_acc_term_i[0];
@@ -794,6 +829,15 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_mhd_force(
                        Bri * r_inv * Bi[2] * tensile_correction_scale_i;
   sph_acc_term_i[2] += monopole_beta * over_rho2_j * wj_dr * permeability_inv *
                        Brj * r_inv * Bi[2] * tensile_correction_scale_i;
+
+ /* Save mag force */
+    pi->mhd_data.tot_mag_F[0] -= mj * sph_acc_term_i[0];
+    pi->mhd_data.tot_mag_F[1] -= mj * sph_acc_term_i[1];
+    pi->mhd_data.tot_mag_F[2] -= mj * sph_acc_term_i[2];
+
+    pi->mhd_data.tot_F[0] = pi->a_hydro[0];
+    pi->mhd_data.tot_F[1] = pi->a_hydro[1];
+    pi->mhd_data.tot_F[2] = pi->a_hydro[2];
 
   /* Use the force Luke ! */
   pi->a_hydro[0] -= mj * sph_acc_term_i[0];

@@ -241,6 +241,10 @@ __attribute__((always_inline)) INLINE static void mhd_reset_gradient(
   p->mhd_data.curl_B[0] = 0.0f;
   p->mhd_data.curl_B[1] = 0.0f;
   p->mhd_data.curl_B[2] = 0.0f;
+  p->mhd_data.mean_SPH_err = 0.0f;
+  p->mhd_data.mean_grad_SPH_err[0] = 0.0f;
+  p->mhd_data.mean_grad_SPH_err[1] = 0.0f;
+  p->mhd_data.mean_grad_SPH_err[2] = 0.0f;
 }
 
 /**
@@ -303,6 +307,12 @@ __attribute__((always_inline)) INLINE static void mhd_reset_acceleration(
   p->mhd_data.B_over_rho_dt[0] = 0.0f;
   p->mhd_data.B_over_rho_dt[1] = 0.0f;
   p->mhd_data.B_over_rho_dt[2] = 0.0f;
+  p->mhd_data.tot_mag_F[0]=0.0f;
+  p->mhd_data.tot_mag_F[1]=0.0f;
+  p->mhd_data.tot_mag_F[2]=0.0f;
+  p->mhd_data.tot_F[0]=0.0f;
+  p->mhd_data.tot_F[1]=0.0f;
+  p->mhd_data.tot_F[2]=0.0f;
 }
 
 /**

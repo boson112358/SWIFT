@@ -43,6 +43,16 @@ struct mhd_part_data {
   float psi_over_ch;
 
   float psi_over_ch_dt;
+
+  /* Variables for tracking sph errors and forces */
+
+  float mean_SPH_err;
+  
+  float mean_grad_SPH_err[3];
+
+  float tot_mag_F[3];
+
+  float tot_F[3];
 };
 
 /**
