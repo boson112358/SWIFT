@@ -156,7 +156,7 @@ data.gas.mass_weighted_visc_par=(
 #matrix = rotation_matrix_from_vector(rotate_vec, axis='z')
 
 def make_slice(key):
-    res=slice_gas(data,z_slice=0.5 * data.metadata.boxsize[2],resolution=img_res,project=key,parallel=True)#,rotation_matrix=matrix,rotation_center=center)
+    res=slice_gas(data,z_slice=0.75 * data.metadata.boxsize[2],resolution=img_res,project=key,parallel=True)#,rotation_matrix=matrix,rotation_center=center)
     return res
 
 divreg=1e-30
@@ -313,12 +313,12 @@ def make_color_levels(cmin,cmax,c_res=10,log_sc=True):
         levels_short=[cmin+(cmax-cmin)/c_res*k for k in range(0,c_res,10)]
     return levels, levels_short
 
-def make_density_plot(Q,cmin,cmax,i,j,Q_name,c_res=10,log_sc=True):
+def make_density_plot(Q,cmin,cmax,i,j,Q_name,c_res=10,log_sc=True,cmap='viridis'):
     levels,levels_short=make_color_levels(cmin,cmax,c_res,log_sc)
     if log_sc:
-        to_plot=ax[i][j].contourf(new_x,new_y,Q.transpose(),levels=np.array(levels),locator=ticker.LogLocator(),cmap = 'viridis')
+        to_plot=ax[i][j].contourf(new_x,new_y,Q.transpose(),levels=np.array(levels),locator=ticker.LogLocator(),cmap = cmap)
     else:
-        to_plot=ax[i][j].contourf(new_x,new_y,Q.transpose(),levels=np.array(levels),cmap = 'viridis')
+        to_plot=ax[i][j].contourf(new_x,new_y,Q.transpose(),levels=np.array(levels),cmap = cmap)
     fig.colorbar(to_plot,ticks=levels_short)
     ax[i][j].set_ylabel(Q_name)
     return 0
@@ -333,7 +333,9 @@ def make_slice_plot(Q,cmin,cmax,i,j,Q_name):
     return 0
 #print(len(Pmag.reshape((dimx,dimy))),len(Pmag.reshape((dimx,dimy))[0]))
 
-make_density_plot(Pmag.reshape((dimx,dimy)),np.min(Pmag),1.1*np.max(Pmag),0,0,'Pmag',c_res=100,log_sc=False)
+Pmag=B[:,0]
+
+make_density_plot(Pmag.reshape((dimx,dimy)),np.min(Pmag),1.1*np.max(Pmag),0,0,'Bx',c_res=100,log_sc=False,cmap='bwr')
 make_density_plot(P.reshape((dimx,dimy)),np.min(P),1.1*np.max(P),1,0,'Pressure',c_res=100,log_sc=False)
 make_density_plot(vv.reshape((dimx,dimy)),np.min(vv),1.1*np.max(vv),0,1,'Velocity',c_res=100,log_sc=False)
 #make_density_plot(cosfftot.reshape((img_res,img_res)),0.75,1.01,0,1,'new',c_res=100,log_sc=False)
