@@ -9,7 +9,7 @@ InternalUnitSystem:
 # Parameters governing the time integration
 TimeIntegration:
   time_begin: 0.    # The starting time of the simulation (in internal units).
-  time_end:   200.0   # The end time of the simulation (in internal units).
+  time_end:   2.0   # The end time of the simulation (in internal units).
   dt_min:     1e-7  # The minimal time-step size of the simulation (in internal units).
   dt_max:     1e-2   # The maximal time-step size of the simulation (in internal units).
 
@@ -36,7 +36,7 @@ MHD:
   hyperbolic_dedner:      0.0
   hyperbolic_dedner_divv: 0.0
   parabolic_dedner:       0.0
-  diffusion_eta:          0.04
+  diffusion_eta:          0.02
 
 
 # Physical parameters

@@ -3,7 +3,7 @@ from swiftsimio.visualisation.projection import project_gas
 import numpy as np
 import sys
 
-input_filename_base = "MagneticBlastWave_LR_"
+input_filename_base = "RobertsFlow_"
 
 for ii in range(41):
 
