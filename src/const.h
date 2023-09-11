@@ -106,7 +106,7 @@
  * comparatively small instead. */
 #define RT_GEAR_TINY_MASS_FRACTION 1.e-20
 
-//#define ROBERTS_FLOW_FORCING
+#define ROBERTS_FLOW_FORCING
 #define ROBERTS_FLOW_FORCING_BOX_SIZE 1.0
 #define ROBERTS_FLOW_FORCING_U0 1.0
 
