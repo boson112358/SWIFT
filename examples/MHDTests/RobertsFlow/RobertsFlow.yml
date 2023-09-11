@@ -36,7 +36,7 @@ MHD:
   hyperbolic_dedner:      0.0
   hyperbolic_dedner_divv: 0.0
   parabolic_dedner:       0.0
-  diffusion_eta:          0.02
+  diffusion_eta:          0.04
 
 
 # Physical parameters
