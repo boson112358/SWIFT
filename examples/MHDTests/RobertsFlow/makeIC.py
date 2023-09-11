@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 # Parameters
 
 rho = 1.0
-cs2 = 1.0 #3025.0
+cs2 = 3025.0 #3025.0
 L = 1.0
 k = 2 * np.pi / L
-V0 = 16 * np.pi
+V0 = 0.12 #16 * np.pi
 
 gamma = 5.0 / 3.0
 u0 = cs2 / (gamma * (gamma - 1))
