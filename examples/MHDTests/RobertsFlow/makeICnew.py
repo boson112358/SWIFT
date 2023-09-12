@@ -1,4 +1,7 @@
 #############################
+# This file is part of SWIFT
+# Copyright
+#############################
 
 import h5py
 import numpy as np
@@ -7,11 +10,19 @@ import matplotlib.pyplot as plt
 # Parameters
 
 rho = 1.0
-cs2 = 3025.0 #3025.0
+cs2 = 3025.0
 L = 1.0
 k = 2 * np.pi / L
-V0 = 1.5#16 * np.pi
-B0 = 0.001*np.sqrt(rho)*V0 # k*k
+
+
+# magnetic Reynolds nr
+Rm = 6
+# magnetic diffusion
+eta = 0.04
+
+V0 = Rm * eta * k
+Beq0 = np.sqrt(rho) * V0
+B0 = 0.001 * Beq0
 
 gamma = 5.0 / 3.0
 u0 = cs2 / (gamma * (gamma - 1))
@@ -32,20 +43,16 @@ vol = L ** 3
 
 v = np.zeros((N, 3))
 B = np.zeros((N, 3))
-psi = np.zeros(N)
 ids = np.linspace(1, N, N)
 m = np.ones(N) * rho * vol / N
 u = np.ones(N) * u0
 
-psi[:] = (V0 / k) * np.cos(k * pos[:,0]) * np.cos(k * pos[:,1]) 
+v[:, 0] = V0 * np.sin(k * pos[:, 1]) * np.cos(k * pos[:, 0])
+v[:, 1] = -V0 * np.sin(k * pos[:, 0]) * np.cos(k * pos[:, 1])
+v[:, 2] = V0 * np.cos(k * pos[:, 1]) * np.cos(k * pos[:, 0]) * np.sqrt(2)
 
-v[:, 0] = V0 * np.cos(k * pos[:, 0]) * np.sin(k * pos[:, 1]) # - was here
-v[:, 1] = - V0 * np.sin(k * pos[:, 0]) * np.cos(k * pos[:, 1]) # + was here
-v[:, 2] = k * np.sqrt(2) * psi[:]
-
-#B[:, 0] = k * k * np.sin(k * pos[:, 1]) * np.sin(k * pos[:, 2])
-B[:,0] = B0 * np.cos(k * pos[:, 2])
-B[:,1] = B0 * np.sin(k * pos[:, 2])
+B[:, 0] = B0 * np.cos(k * pos[:, 2])
+B[:, 1] = B0 * np.sin(k * pos[:, 2])
 
 ###---------------------------###
 
@@ -83,4 +90,3 @@ grp.create_dataset("ParticleIDs", data=ids, dtype="L")
 grp.create_dataset("MagneticFluxDensity", data=B, dtype="f")
 
 fileOutput.close()
-
