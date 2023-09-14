@@ -18,9 +18,9 @@ k = 2 * np.pi / L
 # magnetic Reynolds nr
 Rm = 6
 # magnetic diffusion
-eta = 0.04
+eta = 0.01
 
-V0 = Rm * eta * k
+V0 = 0.375
 Beq0 = np.sqrt(rho) * V0
 B0 = 0.001 * Beq0
 
@@ -31,7 +31,7 @@ fileOutputName = "RobertsFlow.hdf5"
 
 ###---------------------------###
 
-glass = h5py.File("glassCube_64.hdf5", "r")
+glass = h5py.File("glassCube_32.hdf5", "r")
 
 pos = glass["/PartType0/Coordinates"][:, :]
 h = glass["/PartType0/SmoothingLength"][:]

@@ -36,6 +36,18 @@ struct mhd_part_data {
   float phi;
   // float Test[3];
   float Deta;
+  
+  /* Error monitoring quantities */
+ // float curl_B[3];
+  /* <1> */
+ // float mean_SPH_err;
+  /* <grad1> */
+ // float mean_grad_SPH_err[3];
+  /* total magnetic force storing variable */
+ // float tot_mag_F[3];
+  /* total hydro force storing variable */
+ // float tot_F[3];
+
 };
 
 /**

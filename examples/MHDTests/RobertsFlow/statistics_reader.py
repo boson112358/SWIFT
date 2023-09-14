@@ -6,33 +6,53 @@ import matplotlib.pyplot as plt
 
 the_statistics=np.transpose(np.loadtxt("statistics.txt"))
 
-Time = the_statistics[1]
-E_kin = the_statistics[13]
-E_int = the_statistics[14]
-E_mag = the_statistics[34]
+Time = np.array(the_statistics[1])
+E_kin = np.array(the_statistics[13])
+E_int = np.array(the_statistics[14])
+E_mag = np.array(the_statistics[34])
 E_tot=E_kin+E_int+E_mag
 
-fig, ax = plt.subplots(1, 3, sharex=True, figsize=(10, 5))
-ax[0].plot(Time, E_kin/E_tot,label="E_kin")
-ax[0].plot(Time, E_int/E_tot,label="E_int")
-ax[0].plot(Time, E_mag/E_tot,label="E_mag")
-ax[0].plot(Time, E_tot/E_tot,label="E_tot",color="Black",linestyle="dashed")
-ax[0].set_xlabel("Time [s]")
-ax[0].set_ylabel("E/ E_tot")
-ax[0].legend(loc="best")
 
-ax[1].plot(Time, E_tot/E_tot[0],label="E(t)")
-ax[1].plot(Time, E_tot/E_tot,label="Energy conservation",color="Black",linestyle="dashed")
-ax[1].set_xlabel("Time [s]")
-ax[1].set_ylabel("E_tot(t) / E_tot(0)")
-ax[1].legend(loc="best")
-plt.tight_layout()
+Rm=6
+eta=0.01
+v0=Rm*2*np.pi*eta
+rho0=1
+Emag_eq=1*rho0*(v0)**2/2
+one=np.ones(len(E_mag))
 
-ax[2].plot(Time, E_mag,label="Emag")
-ax[2].plot(Time, E_mag,label="Magnetic energy",color="Black",linestyle="dashed")
-ax[2].set_xlabel("Time [s]")
-ax[2].set_ylabel("E_mag(t)")
-ax[2].set_yscale("log")
-ax[2].legend(loc="best")
-plt.tight_layout()
+tmax=4
+mask=Time<=4
+Time=Time[mask]
+E_kin=E_kin[mask]
+E_int=E_int[mask]
+E_mag=E_mag[mask]
+one=one[mask]
+
+
+print(np.max(E_kin)/Emag_eq)
+fig, ax = plt.subplots(1, 1, sharex=True, figsize=(5, 5))
+ax.plot(Time, E_kin/Emag_eq,label="E_kin/Emag_eq")
+ax.plot(Time, E_int/Emag_eq,label="E_int/Emag_eq")
+ax.plot(Time, E_mag/Emag_eq,label="E_mag/Emag_eq")
+ax.plot(Time, one ,label="1")
+ax.set_xlabel("Time [s]")
+ax.set_ylabel("E/Emag_eq")
+ax.legend(loc="best")
+ax.set_yscale("log")
+#ax[1].plot(Time, E_tot/E_tot[0],label="E(t)")
+#ax[1].plot(Time, E_tot/E_tot,label="Energy conservation",color="Black",linestyle="dashed")
+#ax[1].set_xlabel("Time [s]")
+#ax[1].set_ylabel("E_tot(t) / E_tot(0)")
+#ax[1].legend(loc="best")
+#plt.tight_layout()
+
+
+#ax[1].plot(Time, E_mag/Emag_eq,label="Relative_magnetic_energy")
+#ax[1].plot(Time, one ,color="Black",linestyle="dashed")
+#ax[1].plot(Time, 0.001*np.exp(Time * Rm * v0),color="Blue",linestyle="dashed")
+#ax[1].set_xlabel("Time [s]")
+#ax[1].set_ylabel("E(t)/Eeq")
+#ax[1].set_yscale("log")
+#ax[1].legend(loc="best")
+#plt.tight_layout()
 plt.savefig("E_change.png", dpi=100)

@@ -6,7 +6,7 @@ import shutil
 import glob
 
 the_folder=''
-folder_to_save='mov_RobertsFlows_etaD=0.04_v0=1.5_RmagAxel=6_Isothermal_glassCube_64'
+folder_to_save='mov_fede_v0=0.375_eta=0.02'
 snapshot_key='RobertsFlow_'
 parameter_file='RobertsFlow.yml'
 statistics_file='statistics.txt'
