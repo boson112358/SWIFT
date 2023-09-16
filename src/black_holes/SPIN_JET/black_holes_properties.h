@@ -30,8 +30,8 @@ enum AGN_feedback_models {
 };
 
 enum AGN_heating_temperature_models {
-  AGN_heating_temperature_constant,   /*< Use a constant delta_T */
-  AGN_heating_temperature_local, /*< Variable delta_T */
+  AGN_heating_temperature_constant, /*< Use a constant delta_T */
+  AGN_heating_temperature_local,    /*< Variable delta_T */
 };
 
 enum AGN_jet_feedback_models {
@@ -172,7 +172,7 @@ struct black_holes_props {
   /* The minimum heating temperature to apply in the case of variable feedback,
      expressed in Kelvin */
   float delta_T_min;
-    
+
   /* The maximum heating temperature to apply in the case of variable feedback,
      expressed in Kelvin */
   float delta_T_max;
@@ -585,7 +585,8 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
 
     bp->delta_T_xi = parser_get_param_float(params, "SPINJETAGN:delta_T_xi");
 
-    bp->delta_T_min = parser_get_param_float(params, "SPINJETAGN:delta_T_min_K");
+    bp->delta_T_min =
+        parser_get_param_float(params, "SPINJETAGN:delta_T_min_K");
 
     /* Check that minimum temperature makes sense */
     if (bp->delta_T_min <= 0.f)
@@ -597,7 +598,8 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
     /* Convert to internal units */
     bp->delta_T_min /= units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE);
 
-    bp->delta_T_max = parser_get_param_float(params, "SPINJETAGN:delta_T_max_K");
+    bp->delta_T_max =
+        parser_get_param_float(params, "SPINJETAGN:delta_T_max_K");
 
     /* Check that minimum temperature makes sense */
     if (bp->delta_T_max <= 0.f)
@@ -915,7 +917,7 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
     bp->v_jet_min =
         parser_get_param_float(params, "SPINJETAGN:v_jet_min_km_p_s");
     bp->v_jet_min *= (1e5 / (us->UnitLength_in_cgs / us->UnitTime_in_cgs));
-      
+
     bp->v_jet_max =
         parser_get_param_float(params, "SPINJETAGN:v_jet_max_km_p_s");
     bp->v_jet_max *= (1e5 / (us->UnitLength_in_cgs / us->UnitTime_in_cgs));
@@ -928,7 +930,7 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
     bp->v_jet_min =
         parser_get_param_float(params, "SPINJETAGN:v_jet_min_km_p_s");
     bp->v_jet_min *= (1e5 / (us->UnitLength_in_cgs / us->UnitTime_in_cgs));
-      
+
     bp->v_jet_max =
         parser_get_param_float(params, "SPINJETAGN:v_jet_max_km_p_s");
     bp->v_jet_max *= (1e5 / (us->UnitLength_in_cgs / us->UnitTime_in_cgs));

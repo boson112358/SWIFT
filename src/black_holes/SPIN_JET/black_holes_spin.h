@@ -895,18 +895,24 @@ __attribute__((always_inline)) INLINE static float black_hole_feedback_delta_T(
     const double replenishment_time_scale =
         bp->h * cosmo->a / max(sound_speed_hot_gas, gas_dispersion);
 
-    /* Calculate heating temperature from the power, smoothing length (proper, 
+    /* Calculate heating temperature from the power, smoothing length (proper,
        not comoving), neighbour sound speed and neighbour mass. Apply floor. */
-    const float delta_T_repl = (0.6 * constants->const_proton_mass * feedback_power * replenishment_time_scale) / (6.f * constants->const_boltzmann_k * bp->ngb_mass);
-      
+    const float delta_T_repl =
+        (0.6 * constants->const_proton_mass * feedback_power *
+         replenishment_time_scale) /
+        (6.f * constants->const_boltzmann_k * bp->ngb_mass);
+
     /* Calculate heating temperature from the crossing condition, i.e. set the
      * temperature such that a new particle pair will be heated roughly when
      * the previous one crosses (exits) the BH kernel on account of its sound-
-     * crossing time-scale. This also depends on power, smoothing length and 
+     * crossing time-scale. This also depends on power, smoothing length and
      * neighbour mass (per particle, not total). */
-    const float delta_T_cross = (0.6 * constants->const_proton_mass) / (3.f * constants->const_boltzmann_k) *
+    const float delta_T_cross =
+        (0.6 * constants->const_proton_mass) /
+        (3.f * constants->const_boltzmann_k) *
         powf(bp->h * cosmo->a * feedback_power /
-              (4. * bp->ngb_mass / ((double)bp->num_ngbs)),0.6667);
+                 (4. * bp->ngb_mass / ((double)bp->num_ngbs)),
+             0.6667);
 
     /* Calculate minimum temperature from Dalla Vecchia & Schaye (2012) to
        prevent numerical overcooling. This is in Kelvin. */
@@ -918,13 +924,13 @@ __attribute__((always_inline)) INLINE static float black_hole_feedback_delta_T(
 
     /* Apply the crossing and replenishment floors */
     delta_T = fmaxf(delta_T_cross, delta_T_repl);
-      
+
     /* Apply the Dalla Vecchia floor, and multiply by scaling factor */
     delta_T = props->delta_T_xi * fmaxf(delta_T, delta_T_min_Dalla_Vecchia);
 
     /* Apply an additional, constant floor */
     delta_T = fmaxf(delta_T, props->delta_T_min);
-      
+
     /* Apply a ceiling */
     delta_T = fminf(delta_T, props->delta_T_max);
   }
