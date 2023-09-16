@@ -1639,7 +1639,6 @@ void engine_skip_force_and_kick(struct engine *e) {
         t->subtype == task_subtype_bpart_rho ||
         t->subtype == task_subtype_part_swallow ||
         t->subtype == task_subtype_bpart_merger ||
-        t->subtype == task_subtype_bpart_swallow ||
         t->subtype == task_subtype_bpart_feedback ||
         t->subtype == task_subtype_sink_swallow ||
         t->subtype == task_subtype_sink_do_sink_swallow ||
@@ -1731,6 +1730,10 @@ void engine_launch(struct engine *e, const char *call) {
   }
   e->sched.deadtime.active_ticks += active_time;
   e->sched.deadtime.waiting_ticks += getticks() - tic;
+
+#ifdef SWIFT_DEBUG_CHECKS
+  e->sched.last_successful_task_fetch = 0LL;
+#endif
 
   if (e->verbose)
     message("(%s) took %.3f %s.", call, clocks_from_ticks(getticks() - tic),
@@ -1950,7 +1953,8 @@ void engine_init_particles(struct engine *e, int flag_entropy_ICs,
   /* Update the cooling function */
   if ((e->policy & engine_policy_cooling) ||
       (e->policy & engine_policy_temperature))
-    cooling_update(e->cosmology, e->cooling_func, e->s);
+    cooling_update(e->cosmology, e->pressure_floor_props, e->cooling_func,
+                   e->s);
 
 #ifdef WITH_CSDS
   if (e->policy & engine_policy_csds) {
@@ -2370,7 +2374,8 @@ int engine_step(struct engine *e) {
   /* Update the cooling function */
   if ((e->policy & engine_policy_cooling) ||
       (e->policy & engine_policy_temperature))
-    cooling_update(e->cosmology, e->cooling_func, e->s);
+    cooling_update(e->cosmology, e->pressure_floor_props, e->cooling_func,
+                   e->s);
 
   /* Update the softening lengths */
   if (e->policy & engine_policy_self_gravity)
@@ -2926,7 +2931,7 @@ void engine_pin(void) {
   CPU_ZERO(&affinity);
   CPU_SET(pin, &affinity);
   if (sched_setaffinity(0, sizeof(affinity), &affinity) != 0) {
-    error("failed to set engine's affinity");
+    error("failed to set engine's affinity.");
   }
 #else
   error("SWIFT was not compiled with support for pinning.");
@@ -2987,8 +2992,7 @@ void engine_numa_policies(int rank, int verbose) {
       }
     }
     sprintf(&report[len], "]");
-    printf("[%04d] %s\n", rank, report);
-    fflush(stdout);
+    pretime_message("%s", report);
   }
 
   /* And set. */

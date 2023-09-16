@@ -217,6 +217,9 @@ struct bpart {
   /*! The normalized spin/angular momentum vector of the BH */
   float angular_momentum_direction[3];
 
+  /* The current jet direction. */
+  float jet_direction[3];
+
   /*! The jet efficiency */
   float jet_efficiency;
 
