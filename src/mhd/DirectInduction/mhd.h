@@ -108,14 +108,14 @@ __attribute__((always_inline)) INLINE static float mhd_compute_timestep(
 
   const float dt_B_factor = fmax(fabs(divB), fabs(curl_B_norm));
 
-  const float dt_B_derivatives = dt_B_factor != 0.f
-             ? hydro_properties->CFL_condition * p->h *
-                   sqrt(p->rho / (dt_B_factor * dt_B_factor * mu_0))
-             : FLT_MAX;
+  const float dt_B_derivatives =
+      dt_B_factor != 0.f ? hydro_properties->CFL_condition *
+                               sqrt(p->rho * mu_0 / (dt_B_factor * dt_B_factor))
+                         : FLT_MAX;
 
-  const float dt_eta = diffusion_eta != 0.f 
-             ? hydro_properties->CFL_condition * p->h * p->h / diffusion_eta
-             : FLT_MAX;
+  const float dt_eta = diffusion_eta != 0.f ? hydro_properties->CFL_condition *
+                                                  p->h * p->h / diffusion_eta
+                                            : FLT_MAX;
 
   return fmin(dt_B_derivatives, dt_eta);
 }
@@ -386,6 +386,7 @@ __attribute__((always_inline)) INLINE static void mhd_end_force(
   const float h = p->h;
   const float h_inv = 1.0f / h;
 
+  /*
   const float rho = p->rho;
   const float rho_inv = 1.0f / rho;
 
@@ -396,11 +397,12 @@ __attribute__((always_inline)) INLINE static void mhd_end_force(
 
   const float normCurlB2 =
       curlB[0] * curlB[0] + curlB[1] * curlB[1] + curlB[2] * curlB[2];
+  */
 
   const float ch = p->viscosity.v_sig;
 
   /* Physical resistivity contribution to energy equation */
-  p->u_dt += hydro_props->mhd.mhd_eta * normCurlB2 * rho_inv / mu_0;
+  // p->u_dt += hydro_props->mhd.mhd_eta * normCurlB2 * rho_inv / mu_0;
 
   /* Dedner cleaning scalar time derivative */
   const float hyp = hydro_props->mhd.hyp_dedner;
