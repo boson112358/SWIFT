@@ -13,7 +13,7 @@ rho = 1.0
 cs2 = 3025.0 #3025.0
 L = 1.0
 k = 2 * np.pi / L
-V0 = 0.12 #16 * np.pi
+V0 = 0.375 #16 * np.pi
 
 gamma = 5.0 / 3.0
 u0 = cs2 / (gamma * (gamma - 1))
@@ -38,8 +38,8 @@ ids = np.linspace(1, N, N)
 m = np.ones(N) * rho * vol / N
 u = np.ones(N) * u0
 
-v[:, 0] = V0 * np.sin(k * pos[:, 1]) * np.cos(k * pos[:, 0])
-v[:, 1] = -V0 * np.sin(k * pos[:, 0]) * np.cos(k * pos[:, 1])
+v[:, 0] = -V0 * np.sin(k * pos[:, 1]) * np.cos(k * pos[:, 0])
+v[:, 1] = V0 * np.sin(k * pos[:, 0]) * np.cos(k * pos[:, 1])
 v[:, 2] = V0 * np.cos(k * pos[:, 1]) * np.cos(k * pos[:, 0]) * np.sqrt(2)
 # Why amplitude is k**2?
 B[:, 0] = k * k * np.sin(k * pos[:, 1]) * np.sin(k * pos[:, 2])

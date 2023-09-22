@@ -14,11 +14,7 @@ cs2 = 3025.0
 L = 1.0
 k = 2 * np.pi / L
 
-
-# magnetic Reynolds nr
-Rm = 6
 # magnetic diffusion
-eta = 0.01
 
 V0 = 0.375
 Beq0 = np.sqrt(rho) * V0
@@ -47,8 +43,8 @@ ids = np.linspace(1, N, N)
 m = np.ones(N) * rho * vol / N
 u = np.ones(N) * u0
 
-v[:, 0] = V0 * np.sin(k * pos[:, 1]) * np.cos(k * pos[:, 0])
-v[:, 1] = -V0 * np.sin(k * pos[:, 0]) * np.cos(k * pos[:, 1])
+v[:, 0] = -V0 * np.sin(k * pos[:, 1]) * np.cos(k * pos[:, 0])
+v[:, 1] = V0 * np.sin(k * pos[:, 0]) * np.cos(k * pos[:, 1])
 v[:, 2] = V0 * np.cos(k * pos[:, 1]) * np.cos(k * pos[:, 0]) * np.sqrt(2)
 
 B[:, 0] = B0 * np.cos(k * pos[:, 2])
