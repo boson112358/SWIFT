@@ -20,23 +20,24 @@ rho0=1
 Emag_eq=1*rho0*(v0)**2/2
 one=np.ones(len(E_mag))
 
-tmax=4
-mask=Time<=4
+tmax=16
+mask=Time<=tmax
 Time=Time[mask]
 E_kin=E_kin[mask]
 E_int=E_int[mask]
 E_mag=E_mag[mask]
 one=one[mask]
 
-
+B = np.sqrt(2*E_mag)
+Beq = np.sqrt(2*Emag_eq)
 print(np.max(E_kin)/Emag_eq)
 fig, ax = plt.subplots(1, 1, sharex=True, figsize=(5, 5))
-ax.plot(Time, E_kin/Emag_eq,label="E_kin/Emag_eq")
-ax.plot(Time, E_int/Emag_eq,label="E_int/Emag_eq")
-ax.plot(Time, E_mag/Emag_eq,label="E_mag/Emag_eq")
+ax.plot(Time, B/Beq,label="<B_rms>/B_eq")
+#ax.plot(Time, E_int/Emag_eq,label="E_int/Emag_eq")
+#ax.plot(Time, E_mag/Emag_eq,label="E_mag/Emag_eq")
 ax.plot(Time, one ,label="1")
 ax.set_xlabel("Time [s]")
-ax.set_ylabel("E/Emag_eq")
+ax.set_ylabel("<B_rms>/B_eq")
 ax.legend(loc="best")
 ax.set_yscale("log")
 #ax[1].plot(Time, E_tot/E_tot[0],label="E(t)")

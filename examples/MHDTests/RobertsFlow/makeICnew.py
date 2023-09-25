@@ -18,7 +18,7 @@ k = 2 * np.pi / L
 
 V0 = 0.375
 Beq0 = np.sqrt(rho) * V0
-B0 = 0.001 * Beq0
+B0 = 1e-8 * Beq0
 
 gamma = 5.0 / 3.0
 u0 = cs2 / (gamma * (gamma - 1))

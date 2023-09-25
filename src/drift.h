@@ -193,8 +193,8 @@ __attribute__((always_inline)) INLINE static void drift_part(
   const double kf = M_SQRT2 * k0;
   
   const double Psi = (u0 / k0) * cos(k0 * p->x[0]) * cos(k0 * p->x[1]);
-  const double v_Rob[3] = {u0 * cos(k0 * p->x[0]) * sin(k0 * p->x[1]),
-                                 -u0 * sin(k0 * p->x[0]) * cos(k0 * p->x[1]),
+  const double v_Rob[3] = {-u0 * cos(k0 * p->x[0]) * sin(k0 * p->x[1]),
+                                 u0 * sin(k0 * p->x[0]) * cos(k0 * p->x[1]),
                                  kf * Psi};
 
   xp->v_full[0] = v_Rob[0];
