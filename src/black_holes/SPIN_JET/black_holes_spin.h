@@ -898,9 +898,9 @@ __attribute__((always_inline)) INLINE static float black_hole_feedback_delta_T(
     /* Calculate heating temperature from the power, smoothing length (proper,
        not comoving), neighbour sound speed and neighbour mass. Apply floor. */
     const float delta_T_repl =
-        (0.6 * constants->const_proton_mass * feedback_power *
+        (2.f * 0.6 * constants->const_proton_mass * feedback_power *
          replenishment_time_scale) /
-        (6.f * constants->const_boltzmann_k * bp->ngb_mass);
+        (3.f * constants->const_boltzmann_k * bp->ngb_mass);
 
     /* Calculate heating temperature from the crossing condition, i.e. set the
      * temperature such that a new particle pair will be heated roughly when
@@ -909,9 +909,9 @@ __attribute__((always_inline)) INLINE static float black_hole_feedback_delta_T(
      * neighbour mass (per particle, not total). */
     const float delta_T_cross =
         (0.6 * constants->const_proton_mass) /
-        (3.f * constants->const_boltzmann_k) *
-        powf(bp->h * cosmo->a * feedback_power /
-                 (4. * bp->ngb_mass / ((double)bp->num_ngbs)),
+        (constants->const_boltzmann_k) *
+        powf(2.f * bp->h * cosmo->a * feedback_power /
+                 (sqrtf(15.f) * bp->ngb_mass / ((double)bp->num_ngbs)),
              0.6667);
 
     /* Calculate minimum temperature from Dalla Vecchia & Schaye (2012) to
