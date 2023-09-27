@@ -227,7 +227,12 @@ void lightcone_map_write(struct lightcone_map *map, const hid_t loc_id,
   if (!collective) {
 
     /* Set the chunk size */
-    const hsize_t dim[1] = {(hsize_t)chunk_size};
+    hsize_t dim[1];
+    if(map->local_nr_pix > chunk_size) {
+      dim[0] = (hsize_t) chunk_size;
+    } else {
+      dim[0] = (hsize_t) map->local_nr_pix;
+    }
     if (H5Pset_chunk(prop_id, 1, dim) < 0)
       error("Unable to set HDF5 chunk size for healpix map");
 
