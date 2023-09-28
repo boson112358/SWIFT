@@ -38,6 +38,11 @@ MHD:
   parabolic_dedner:       0.0 # 1.0
   diffusion_eta:          0.001875 # 0.00375  # 0.01
 
+RobertsFlowAccelerationForcing:
+  u0:              0.375      # Forcing velocity (internal units)
+  nu:              1.0      # Viscosity (internal units) to convert velocities to accelerations.
+  Vz_factor:       1.0      # (optional) Scaling of the velocity along the z axis
+   
 
 # Physical parameters
 PhysicalConstants:
