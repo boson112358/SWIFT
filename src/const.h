@@ -106,7 +106,4 @@
  * comparatively small instead. */
 #define RT_GEAR_TINY_MASS_FRACTION 1.e-20
 
-#define ROBERTS_FLOW_FORCING
-#define ROBERTS_FLOW_FORCING_U0 0.375
-
 #endif /* SWIFT_CONST_H */
