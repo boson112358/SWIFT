@@ -38,6 +38,9 @@ MHD:
   parabolic_dedner:       0.0 # 1.0
   diffusion_eta:          0.00375 # 0.00375  # 0.01
 
+RobertsFlowForcing:
+  u0:              0.375      # Forcing velocity
+
 RobertsFlowAccelerationForcing:
   u0:              0.375      # Forcing velocity (internal units)
   nu:              1.0      # Viscosity (internal units) to convert velocities to accelerations.
