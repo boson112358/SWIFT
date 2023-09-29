@@ -39,6 +39,7 @@ vol = L ** 3
 
 v = np.zeros((N, 3))
 B = np.zeros((N, 3))
+A = np.zeros((N, 3))
 ids = np.linspace(1, N, N)
 m = np.ones(N) * rho * vol / N
 u = np.ones(N) * u0
@@ -93,6 +94,7 @@ grp.create_dataset("SmoothingLength", data=h, dtype="f")
 grp.create_dataset("InternalEnergy", data=u, dtype="f")
 grp.create_dataset("ParticleIDs", data=ids, dtype="L")
 grp.create_dataset("MagneticFluxDensity", data=B, dtype="f")
-grp.create_dataset("",data=A, dtype="f")
+grp.create_dataset("MagneticVectorPotential", data=A, dtype="f")
+
 
 fileOutput.close()
