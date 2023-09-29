@@ -28,7 +28,6 @@ fileOutputName = "RobertsFlow.hdf5"
 ###---------------------------###
 
 glass = h5py.File("glassCube_32.hdf5", "r")
-
 pos = glass["/PartType0/Coordinates"][:, :]
 h = glass["/PartType0/SmoothingLength"][:]
 
@@ -59,6 +58,7 @@ B[:, 2] = B0 * (np.sin(k * pos[:,1]) +  np.cos(k * pos[:,0]))
 A[:, 0] = A0 * (np.sin(k * pos[:,2]) +  np.cos(k * pos[:,1]))
 A[:, 1] = A0 * (np.sin(k * pos[:,0]) +  np.cos(k * pos[:,2]))
 A[:, 2] = A0 * (np.sin(k * pos[:,1]) +  np.cos(k * pos[:,0]))
+
 
 ###---------------------------###
 
