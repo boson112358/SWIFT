@@ -189,6 +189,13 @@ __attribute__((always_inline)) INLINE static void mhd_init_part(
     struct part *p) {
 
   p->mhd_data.divB = 0.f;
+
+/*error monitoring quantities*/
+  p->mhd_data.mean_SPH_err = 0.f;
+ for (int i = 0; i<3; ++i){
+  p->mhd_data.curl_B[i] = 0.f;
+  p->mhd_data.mean_grad_SPH_err[i] = 0.f;
+}
 }
 
 /**
@@ -210,6 +217,13 @@ __attribute__((always_inline)) INLINE static void mhd_end_density(
   const float h_inv_dim_plus_one = pow_dimension(1.f / p->h) / p->h;
   const float rho_inv = 1.f / p->rho;
   p->mhd_data.divB *= h_inv_dim_plus_one * rho_inv;
+
+/*error monitoring quantities*/
+  p->mhd_data.mean_SPH_err *= rho_inv;
+ for (int i = 0; i<3; ++i){
+  p->mhd_data.curl_B[i] *= h_inv_dim_plus_one * rho_inv;
+  p->mhd_data.mean_grad_SPH_err[i] *= h_inv_dim_plus_one * rho_inv;
+}
 }
 
 /**
@@ -314,6 +328,12 @@ __attribute__((always_inline)) INLINE static void mhd_prepare_force(
   /* Re normalize the correction in the momentum from the DivB errors*/
   p->mhd_data.Q0 =
       ACC_corr > ACC_mhd ? p->mhd_data.Q0 * ACC_mhd / ACC_corr : p->mhd_data.Q0;
+
+/*error monitoring quantities*/
+ for (int i = 0; i<3; ++i){
+  p->mhd_data.tot_mag_F[i] = 0.f;
+  p->mhd_data.tot_F[i] = 0.f;
+  }
 }
 
 /**

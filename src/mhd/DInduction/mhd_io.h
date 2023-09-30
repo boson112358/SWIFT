@@ -75,7 +75,24 @@ INLINE static int mhd_write_particles(const struct part* parts,
       "DednerScalar", FLOAT, 1, UNIT_CONV_ELECTRIC_CHARGE_FIELD_STRENGTH,
       mhd_comoving_factor + 1.f, parts, mhd_data.phi, "Dedner scalar field");
 
-  return 3;
+  list[3] = io_make_output_field(
+      "MagneticFluxCurl", FLOAT, 3, UNIT_CONV_MAGNETIC_CURL, 1.f, parts,
+      mhd_data.curl_B, "The curl of Magnetic flux densities of the particles");
+
+  list[4] = io_make_output_field(
+      "Fmag", FLOAT, 3,UNIT_CONV_MAGNETIC_DIVERGENCE, 1.f, parts, mhd_data.tot_mag_F, "Total magnetic force");
+
+  list[5] = io_make_output_field(
+        "Ftot", FLOAT, 3,UNIT_CONV_MAGNETIC_DIVERGENCE, 1.f, parts, mhd_data.tot_F, "Total force");
+
+  list[6] = io_make_output_field(
+      "SPH_1", FLOAT, 1,1, 1.f, parts, mhd_data.mean_SPH_err-1, "SPH error");
+
+  list[7] = io_make_output_field(
+      "SPH_grad_1", FLOAT, 3,UNIT_CONV_MAGNETIC_DIVERGENCE/UNIT_CONV_MAGNETIC_FIELD, 1.f, parts, mhd_data.mean_grad_SPH_err, "SPH grad error");
+
+
+  return 8;
 }
 
 /**

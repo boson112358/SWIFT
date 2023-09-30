@@ -45,7 +45,7 @@ v=data.gas.velocities.value
 P=data.gas.pressures.value
 B=data.gas.magnetic_flux_density.value
 divB=data.gas.magnetic_divergence.value
-curlB=data.gas.curl_b.value
+curlB=data.gas.magnetic_flux_curl.value
 Fmag=data.gas.fmag.value
 Ftot=data.gas.ftot.value
 Ftot=Ftot-Fmag
@@ -156,7 +156,7 @@ data.gas.mass_weighted_visc_par=(
 #matrix = rotation_matrix_from_vector(rotate_vec, axis='z')
 
 def make_slice(key):
-    res=slice_gas(data,z_slice=0.5 * data.metadata.boxsize[2],resolution=img_res,project=key,parallel=True)#,rotation_matrix=matrix,rotation_center=center)
+    res=slice_gas(data,z_slice=0.75 * data.metadata.boxsize[2],resolution=img_res,project=key,parallel=True)#,rotation_matrix=matrix,rotation_center=center)
     return res
 
 divreg=1e-30

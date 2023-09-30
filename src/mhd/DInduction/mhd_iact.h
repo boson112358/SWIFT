@@ -67,7 +67,26 @@ __attribute__((always_inline)) INLINE static void runner_iact_mhd_density(
   const double dBdr = dB[0] * dx[0] + dB[1] * dx[1] + dB[2] * dx[2];
   pi->mhd_data.divB -= faci * dBdr;
   pj->mhd_data.divB -= facj * dBdr;
+/* Error metric quantities*/
 
+/* dB cross r */
+  float dB_cross_dx[3];
+  dB_cross_dx[0] = dB[1] * dx[2] - dB[2] * dx[1];
+  dB_cross_dx[1] = dB[2] * dx[0] - dB[0] * dx[2];
+  dB_cross_dx[2] = dB[0] * dx[1] - dB[1] * dx[0];
+
+/* Calculate curl */
+  for (int i = 0; i<3; ++i){
+    pi->mhd_data.curl_B[i] += faci * dB_cross_dx[i];
+    pj->mhd_data.curl_B[i] += facj * dB_cross_dx[i];
+}
+/* Calculate error magnitude */
+  pi->mhd_data.mean_SPH_err += mj * wj;
+  pj->mhd_data.mean_SPH_err += mi * wi;
+  for (int i = 0; i<3; ++i){
+    pi->mhd_data.mean_grad_SPH_err[i] -= faci * dx[i];
+    pj->mhd_data.mean_grad_SPH_err[i] += facj * dx[i];
+}
   return;
 }
 
@@ -91,11 +110,12 @@ runner_iact_nonsym_mhd_density(const float r2, const float dx[3],
                                const struct part *restrict pj,
                                const double mu_0, const float a,
                                const float H) {
-  float wi, wi_dx;
+  float wi, wj, wi_dx, wj_dx;
 
   const float r = sqrtf(r2);
 
-  /* Get the mass. */
+  /* Get the masses. */
+  //const float mi = pi->mass;
   const float mj = pj->mass;
 
   /* Compute density of pi. */
@@ -103,6 +123,12 @@ runner_iact_nonsym_mhd_density(const float r2, const float dx[3],
   const float ui = r * hi_inv;
 
   kernel_deval(ui, &wi, &wi_dx);
+
+  /* Compute density of pj. */
+  const float hj_inv = 1.f / hj;
+  const float uj = r * hj_inv;
+  kernel_deval(uj, &wj, &wj_dx);
+
 
   /* Now we need to compute the div terms */
   const float r_inv = r ? 1.0f / r : 0.0f;
@@ -113,6 +139,24 @@ runner_iact_nonsym_mhd_density(const float r2, const float dx[3],
     dB[i] = pi->mhd_data.BPred[i] - pj->mhd_data.BPred[i];
   const double dBdr = dB[0] * dx[0] + dB[1] * dx[1] + dB[2] * dx[2];
   pi->mhd_data.divB -= faci * dBdr;
+
+/* Error metric quantities*/
+
+/* dB cross r */
+  float dB_cross_dx[3];
+  dB_cross_dx[0] = dB[1] * dx[2] - dB[2] * dx[1];
+  dB_cross_dx[1] = dB[2] * dx[0] - dB[0] * dx[2];
+  dB_cross_dx[2] = dB[0] * dx[1] - dB[1] * dx[0];
+
+/* Calculate curl */
+  for (int i = 0; i>3; ++i){
+    pi->mhd_data.curl_B[i] += faci * dB_cross_dx[i];
+}
+/* Calculate error magnitude */
+  pi->mhd_data.mean_SPH_err += mj * wj;
+  for (int i = 0; i<3; ++i){
+    pi->mhd_data.mean_grad_SPH_err[i] -= faci * dx[i];
+}
 
   return;
 }
@@ -239,6 +283,19 @@ __attribute__((always_inline)) INLINE static void runner_iact_mhd_force(
     mm_i[j][j] -= 0.5 * (Bi[0] * Bi[0] + Bi[1] * Bi[1] + Bi[2] * Bi[2]);
     mm_j[j][j] -= 0.5 * (Bj[0] * Bj[0] + Bj[1] * Bj[1] + Bj[2] * Bj[2]);
   }
+
+/* Save mag force */
+for (int i = 0; i < 3; i++){
+    for (int j = 0; j < 3; j++) {
+      pi->mhd_data.tot_mag_F[i] += mj * (mm_i[i][j] * mag_faci + mm_j[i][j] * mag_facj) * dx[j];
+      pj->mhd_data.tot_mag_F[i] -= mi * (mm_i[i][j] * mag_faci + mm_j[i][j] * mag_facj) * dx[j];
+      pi->mhd_data.tot_mag_F[i] -= pi->mhd_data.Q0 * mj * Bi[i] * (Bi[j] * mag_faci + Bj[j] * mag_facj) * dx[j];
+      pj->mhd_data.tot_mag_F[i] += pj->mhd_data.Q0 * mi * Bj[i] * (Bi[j] * mag_faci + Bj[j] * mag_facj) * dx[j];
+    }
+    pi->mhd_data.tot_F[i] = pi->a_hydro[i];
+    pj->mhd_data.tot_F[i] = pj->a_hydro[i];
+}
+
   //////////////////////////// Apply to the Force and DIVB TERM SUBTRACTION
   for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++) {
@@ -353,6 +410,16 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_mhd_force(
     mm_i[j][j] -= 0.5 * (Bi[0] * Bi[0] + Bi[1] * Bi[1] + Bi[2] * Bi[2]);
     mm_j[j][j] -= 0.5 * (Bj[0] * Bj[0] + Bj[1] * Bj[1] + Bj[2] * Bj[2]);
   }
+
+  /* Save mag force */
+for (int i = 0; i < 3; i++){
+    for (int j = 0; j < 3; j++) {
+      pi->mhd_data.tot_mag_F[i] += mj * (mm_i[i][j] * mag_faci + mm_j[i][j] * mag_facj) * dx[j];
+      pi->mhd_data.tot_mag_F[i] -= pi->mhd_data.Q0 * mj * Bi[i] * (Bi[j] * mag_faci + Bj[j] * mag_facj) * dx[j];
+    }
+    pi->mhd_data.tot_F[i] = pi->a_hydro[i];
+}
+
   //////////////////////////// Apply to the Force and DIVB TERM SUBTRACTION
   // comoving integration>
   // 1/a Lorentz
