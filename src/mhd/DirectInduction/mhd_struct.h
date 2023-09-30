@@ -26,28 +26,30 @@ struct mhd_part_data {
 
   float B_over_rho[3];
 
+  float divB;
+  
+  /*! dB Direct Induction */
   float B_over_rho_dt[3];
 
   float v_fm;
 
-  float B_mon;
-
   float curl_B[3];
 
-  /*union{
-     float B_mon;
-     float divB;
-  };
-  */
+  /* Resistive Eta */
+  float Reta;
 
   float psi_over_ch;
 
   float psi_over_ch_dt;
 
-  /* Error monitoring quantities */
+  /*! Monopole substraction in Lorentz Force*/
+  float monopole_beta;
+  /*! Artifical Diffusion */
+  float Art_Diff_beta;
 
+  /* Error monitoring quantities */
   float mean_SPH_err;
-  
+
   float mean_grad_SPH_err[3];
 
   float tot_mag_F[3];
@@ -60,6 +62,7 @@ struct mhd_part_data {
  */
 struct mhd_xpart_data {
 
+  /*! Full Step Magnetic field */
   float B_over_rho_full[3];
 };
 
