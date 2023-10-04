@@ -16,7 +16,7 @@ k = 2 * np.pi / L
 
 # magnetic diffusion
 
-V0 = 0.375
+V0 = 22.9
 Beq0 = np.sqrt(rho) * V0
 B0 = 1e-8 * Beq0
 

@@ -9,7 +9,7 @@ InternalUnitSystem:
 # Parameters governing the time integration
 TimeIntegration:
   time_begin: 0.    # The starting time of the simulation (in internal units).
-  time_end:   16.0   # The end time of the simulation (in internal units).
+  time_end:   2.0   # The end time of the simulation (in internal units).
   dt_min:     1e-7  # The minimal time-step size of the simulation (in internal units).
   dt_max:     1e-2   # The maximal time-step size of the simulation (in internal units).
 
@@ -22,7 +22,7 @@ Snapshots:
 
 # Parameters governing the conserved quantities statistics
 Statistics:
-  delta_time:          1e-1 # Time between statistics output
+  delta_time:          5e-2 # Time between statistics output
 
 # Parameters for the hydrodynamics scheme
 SPH:
@@ -32,14 +32,14 @@ SPH:
 # Parameters for MHD schemes
 MHD:
   monopole_subtraction:   1.0 # 1.0
-  artificial_resistivity: 0.0
+  artificial_diffusion:   0.0 # 1.0
   hyperbolic_dedner:      0.0 # 1.0
   hyperbolic_dedner_divv: 0.0 # 0.5
   parabolic_dedner:       0.0 # 1.0
-  resistive_eta:          0.00375 # 0.00375  # 0.01
+  resistive_eta:          0.584 # 0.00375  # 0.01
 
 RobertsFlowForcing:
-  u0:              0.375      # Forcing velocity
+  u0:              22.9      # Forcing velocity
 
 RobertsFlowAccelerationForcing:
   u0:              0.375      # Forcing velocity (internal units)

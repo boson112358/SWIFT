@@ -30,12 +30,25 @@ one=one[mask]
 
 B = np.sqrt(2*E_mag)
 Beq = np.sqrt(2*Emag_eq)
-print(np.max(E_kin)/Emag_eq)
+
+def find_growth_rate(the_time, B_field, nlast = 3):
+    l = len(B_field)
+    B_field_cut = B_field[l-1-nlast:-1]
+    time_cut = the_time[l-1-nlast:-1]
+    #print(time_cut,B_field_cut)
+    res = np.polyfit(time_cut,B_field_cut,1)
+    return res
+
+B0 = B[0]
+
+alpha = find_growth_rate(Time, np.log10(B/B0), nlast = 3)[0]
+print(f'growth rate is {alpha}')
+#print(np.max(E_kin)/Emag_eq)
 fig, ax = plt.subplots(1, 1, sharex=True, figsize=(5, 5))
-ax.plot(Time, B/Beq,label="<B_rms>/B_eq")
+ax.plot(Time, B/B0,label="<B_rms>/B_eq")
 #ax.plot(Time, E_int/Emag_eq,label="E_int/Emag_eq")
 #ax.plot(Time, E_mag/Emag_eq,label="E_mag/Emag_eq")
-ax.plot(Time, one ,label="1")
+#ax.plot(Time, one ,label="1")
 ax.set_xlabel("Time [s]")
 ax.set_ylabel("<B_rms>/B_eq")
 ax.legend(loc="best")

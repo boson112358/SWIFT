@@ -8,7 +8,7 @@ import h5py
 filename = sys.argv[1]
 
 with h5py.File(filename, "r") as handle:
-    #print(handle["PartType0"].keys())
+    print(handle["PartType0"].keys())
     #print(handle["PartType0/ViscosityParameters"][0]) 
     gamma = handle["HydroScheme"].attrs["Adiabatic index"][0]
     boxsize = handle["Header"].attrs["BoxSize"][0]
@@ -21,7 +21,7 @@ with h5py.File(filename, "r") as handle:
     mu0 = handle["/PhysicalConstants/InternalUnits"].attrs["vacuum_permeability"]
     dedhyp = handle["/HydroScheme"].attrs["Dedner Hyperbolic Constant"]
     dedpar = handle["/HydroScheme"].attrs["Dedner Parabolic Constant"]
-    mhdeta = handle["/HydroScheme"].attrs["Diffusion Eta"]
+    #mhdeta = handle["/HydroScheme"].attrs["Diffusion Eta"]
     mhdflavour = handle["/HydroScheme"].attrs["MHD Flavour"]
 
 
