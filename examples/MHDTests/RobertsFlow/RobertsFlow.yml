@@ -36,7 +36,7 @@ MHD:
   hyperbolic_dedner:      0.0 # 1.0
   hyperbolic_dedner_divv: 0.0 # 0.5
   parabolic_dedner:       0.0 # 1.0
-  diffusion_eta:          0.00375 # 0.00375  # 0.01
+  resistive_eta:          0.00375 # 0.00375  # 0.01
 
 RobertsFlowForcing:
   u0:              0.375      # Forcing velocity
