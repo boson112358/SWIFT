@@ -164,14 +164,14 @@ __attribute__((always_inline)) INLINE static void runner_iact_mhd_gradient(
       mi * over_rho_j * wj_dr * r_inv * dB_cross_dx[2];
 
 /* Calculate error magnitude */
-  pi->mhd_data.mean_SPH_err += mj * over_rho2_i * rhoi * wj;
-  pi->mhd_data.mean_grad_SPH_err[0] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[0];
-  pi->mhd_data.mean_grad_SPH_err[1] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[1];
-  pi->mhd_data.mean_grad_SPH_err[2] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[2];
-  pj->mhd_data.mean_SPH_err += mi * over_rho2_j * rhoj * wi;
-  pj->mhd_data.mean_grad_SPH_err[0] += mi * over_rho2_j * rhoj * wi_dr * r_inv * dx[0];
-  pj->mhd_data.mean_grad_SPH_err[1] += mi * over_rho2_j * rhoj * wi_dr * r_inv * dx[1];
-  pj->mhd_data.mean_grad_SPH_err[2] += mi * over_rho2_j * rhoj * wi_dr * r_inv * dx[2];
+  pi->mhd_data.mean_SPH_err += mj * over_rho_i * wj;
+  pi->mhd_data.mean_grad_SPH_err[0] -= mj * over_rho_i * wj_dr * r_inv * dx[0];
+  pi->mhd_data.mean_grad_SPH_err[1] -= mj * over_rho_i * wj_dr * r_inv * dx[1];
+  pi->mhd_data.mean_grad_SPH_err[2] -= mj * over_rho_i * wj_dr * r_inv * dx[2];
+  pj->mhd_data.mean_SPH_err += mi * over_rho_j * wi;
+  pj->mhd_data.mean_grad_SPH_err[0] += mi * over_rho_j * wi_dr * r_inv * dx[0];
+  pj->mhd_data.mean_grad_SPH_err[1] += mi * over_rho_j * wi_dr * r_inv * dx[1];
+  pj->mhd_data.mean_grad_SPH_err[2] += mi * over_rho_j * wi_dr * r_inv * dx[2];
 
   /* Calculate gradient of B tensor */
   for (int i=0; i<3; i++){
@@ -264,7 +264,7 @@ runner_iact_nonsym_mhd_gradient(const float r2, const float dx[3],
 
   /* Compute gradient terms */
   const float over_rho_i = 1.0f / rhoi * f_ij;
-  // const float over_rho2_j = 1.0f / (rhoj * rhoj) * f_ji;
+  //const float over_rho_j = 1.0f / rhoj * f_ji;
 
   /* Calculate monopole term */
   float B_mon_i = -over_rho_i * (Bri - Brj) * wi_dr * r_inv;
@@ -279,10 +279,10 @@ runner_iact_nonsym_mhd_gradient(const float r2, const float dx[3],
       mj * over_rho_i * wi_dr * r_inv * dB_cross_dx[2];
 
   /* Calculate error magnitude */
-  pi->mhd_data.mean_SPH_err += mj * over_rho2_i * rhoi * wj;
-  pi->mhd_data.mean_grad_SPH_err[0] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[0];
-  pi->mhd_data.mean_grad_SPH_err[1] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[1];
-  pi->mhd_data.mean_grad_SPH_err[2] -= mj * over_rho2_i * rhoi * wj_dr * r_inv * dx[2];
+  pi->mhd_data.mean_SPH_err += mj * over_rho_i * wj;
+  pi->mhd_data.mean_grad_SPH_err[0] -= mj * over_rho_i * wj_dr * r_inv * dx[0];
+  pi->mhd_data.mean_grad_SPH_err[1] -= mj * over_rho_i * wj_dr * r_inv * dx[1];
+  pi->mhd_data.mean_grad_SPH_err[2] -= mj * over_rho_i * wj_dr * r_inv * dx[2];
 
   /* Calculate gradient of B tensor */
   for (int i=0; i<3; i++){
