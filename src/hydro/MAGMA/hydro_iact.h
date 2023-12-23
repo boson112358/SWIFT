@@ -20,7 +20,8 @@
 #ifndef SWIFT_SPHENIX_HYDRO_IACT_H
 #define SWIFT_SPHENIX_HYDRO_IACT_H
 
-#define USE_MATRIX_INVERSION_2
+//#define USE_MATRIX_INVERSION_2
+#define MAGMA_USE_FIRST_ORDER
 
 /**
  * @file SPHENIX/hydro_iact.h
@@ -470,7 +471,7 @@ __attribute__((always_inline)) INLINE static void runner_iact_force(
   const float Hi = r / hi;
   const float Hj = r / hj;
   const float hij = min(Hi, Hj);
-  const float h_crit = 0.5f;
+  const float h_crit = 0.833f;
 
   /* Get the slope constant A(Eq22). */
   float A_i = 0.f, A_j = 0.f, Av_i = 0.f, Av_j = 0.f;
@@ -589,8 +590,8 @@ __attribute__((always_inline)) INLINE static void runner_iact_force(
   }
 
   for (int i = 0; i < 3; i++) { /* Eq17 */
-    vi_mid[i] = pi->v[i] + Fv_ij * (vi_fder[i] + para_vis * vi_sder[i]);
-    vj_mid[i] = pj->v[i] + Fv_ji * (vj_fder[i] + para_vis * vj_sder[i]);
+    vi_mid[i] = pi->v[i] + const_viscosity * Fv_ij * (vi_fder[i] + para_vis * vi_sder[i]);
+    vj_mid[i] = pj->v[i] + const_viscosity * Fv_ji * (vj_fder[i] + para_vis * vj_sder[i]);
   }
 
   /* Compute dv dot r. */
@@ -627,6 +628,10 @@ __attribute__((always_inline)) INLINE static void runner_iact_force(
                     (-pi->force.soundspeed * mu_i + 2.f * fac_mu * mu_i * mu_i);
   const float Q_j = fac_mu * rhoj *
                     (-pj->force.soundspeed * mu_j + 2.f * fac_mu * mu_j * mu_j);
+  /*
+  if(Q_i > 1.f){
+    message("ui(%e), uj(%e),Qi(%e), Qj(%e)", pi->u, pj->u, Q_i, Q_j);
+  }*/
 
   /* New gradient functions*/
   float c_matrix_i[3][3], c_matrix_j[3][3];
@@ -827,7 +832,7 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_force(
   const float Hi = r / hi;
   const float Hj = r / hj;
   const float hij = min(Hi, Hj);
-  const float h_crit = 0.5f;
+  const float h_crit = 0.833f;
 
   /* Get the slope constant A(Eq22). */
   float A_i = 0.f, A_j = 0.f, Av_i = 0.f, Av_j = 0.f;
@@ -946,8 +951,8 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_force(
   }
 
   for (int i = 0; i < 3; i++) { /* Eq17 */
-    vi_mid[i] = pi->v[i] + Fv_ij * (vi_fder[i] + para_vis * vi_sder[i]);
-    vj_mid[i] = pj->v[i] + Fv_ji * (vj_fder[i] + para_vis * vj_sder[i]);
+    vi_mid[i] = pi->v[i] + const_viscosity * Fv_ij * (vi_fder[i] + para_vis * vi_sder[i]);
+    vj_mid[i] = pj->v[i] + const_viscosity * Fv_ji * (vj_fder[i] + para_vis * vj_sder[i]);
   }
 
   /* Compute dv dot r. */
