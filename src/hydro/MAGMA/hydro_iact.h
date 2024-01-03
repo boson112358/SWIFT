@@ -21,7 +21,7 @@
 #define SWIFT_SPHENIX_HYDRO_IACT_H
 
 //#define USE_MATRIX_INVERSION_2
-#define MAGMA_USE_FIRST_ORDER
+//#define MAGMA_USE_FIRST_ORDER
 
 /**
  * @file SPHENIX/hydro_iact.h
