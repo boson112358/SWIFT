@@ -519,6 +519,22 @@ __attribute__((always_inline)) INLINE static void hydro_init_part(
   p->density.wcount_dh = 0.f;
   p->rho = 0.f;
   p->density.rho_dh = 0.f;
+
+  /* Adding MAGMA variables. */
+  for (int i = 0; i < 3; i++) {
+    //p->magma.aux_u[i] = 0.f;
+    p->magma.fder_u[i] = 0.f;
+    for (int j = 0; j < 3; j++) {
+      //p->magma.aux_v[i][j] = 0.f;
+      p->magma.fder_v[i][j] = 0.f;
+      //p->magma.c_matrix[i][j] = 0.f;
+      //p->magma.d_matrix[i][j] = 0.f;
+      //p->magma.sder_u[i][j] = 0.f;
+      for (int k = 0; k < 3; k++) {
+        //p->magma.sder_v[i][j][k] = 0.f;
+      }
+    }
+  }
 }
 
 /**
@@ -584,10 +600,12 @@ __attribute__((always_inline)) INLINE static void hydro_reset_gradient(
     struct part *restrict p) {
 
   zero_sym_matrix(&p->gradient.c_matrix_inv);
+  /*
   for (int i = 0; i < 3; ++i) p->gradient.gradient_vx[i] = 0.f;
   for (int i = 0; i < 3; ++i) p->gradient.gradient_vy[i] = 0.f;
   for (int i = 0; i < 3; ++i) p->gradient.gradient_vz[i] = 0.f;
   for (int i = 0; i < 3; ++i) p->gradient.gradient_u[i] = 0.f;
+  */
 }
 
 /**
@@ -616,13 +634,14 @@ __attribute__((always_inline)) INLINE static void hydro_end_gradient(
 
   /* Finish the construction of the inverse of the velocity gradient
    * multiplying in the factors of h coming from W */
+  /*
   for (int i = 0; i < 3; ++i) p->gradient.gradient_vx[i] *= h_inv_dim;
   for (int i = 0; i < 3; ++i) p->gradient.gradient_vy[i] *= h_inv_dim;
   for (int i = 0; i < 3; ++i) p->gradient.gradient_vz[i] *= h_inv_dim;
-
+  */
   /* Finish the construction of the inverse of the internal energy gradient
    * multiplying in the factors of h coming from W */
-  for (int i = 0; i < 3; ++i) p->gradient.gradient_u[i] *= h_inv_dim;
+  //for (int i = 0; i < 3; ++i) p->gradient.gradient_u[i] *= h_inv_dim;
 }
 
 /**
@@ -655,6 +674,22 @@ __attribute__((always_inline)) INLINE static void hydro_part_has_no_neighbours(
   p->density.wcount = kernel_root * h_inv_dim;
   p->density.rho_dh = 0.f;
   p->density.wcount_dh = 0.f;
+
+  /* Adding MAGMA variables. */
+  for (int i = 0; i < 3; i++) {
+    //p->magma.aux_u[i] = 0.f;
+    p->magma.fder_u[i] = 0.f;
+    for (int j = 0; j < 3; j++) {
+      //p->magma.aux_v[i][j] = 0.f;
+      p->magma.fder_v[i][j] = 0.f;
+      //p->magma.c_matrix[i][j] = 0.f;
+      //p->magma.d_matrix[i][j] = 0.f;
+      //p->magma.sder_u[i][j] = 0.f;
+      for (int k = 0; k < 3; k++) {
+        //p->magma.sder_v[i][j][k] = 0.f;
+      }
+    }
+  }
 }
 
 /**
@@ -699,6 +734,7 @@ __attribute__((always_inline)) INLINE static void hydro_prepare_force(
   /* TODO: Write a routine to invert symmetric matrices */
 
   /* Finish computation of velocity gradient (eq. 18) */
+  /*
   const float gradient_vx[3] = {p->gradient.gradient_vx[0],
                                 p->gradient.gradient_vx[1],
                                 p->gradient.gradient_vx[2]};
@@ -738,8 +774,10 @@ __attribute__((always_inline)) INLINE static void hydro_prepare_force(
   p->force.gradient_vz[2] = c_matrix_temp[2][0] * gradient_vz[0] +
                             c_matrix_temp[2][1] * gradient_vz[1] +
                             c_matrix_temp[2][2] * gradient_vz[2];
+  */
 
   /* Finish computation of u gradient (same as eq. 18) */
+  /*
   const float gradient_u[3] = {p->gradient.gradient_u[0],
                                p->gradient.gradient_u[1],
                                p->gradient.gradient_u[2]};
@@ -753,6 +791,52 @@ __attribute__((always_inline)) INLINE static void hydro_prepare_force(
   p->force.gradient_u[2] = c_matrix_temp[2][0] * gradient_u[0] +
                            c_matrix_temp[2][1] * gradient_u[1] +
                            c_matrix_temp[2][2] * gradient_u[2];
+  */
+  /* Some smoothing length multiples. */
+  const float h = p->h;
+  const float h_inv = 1.0f / h;                       /* 1/h */
+  const float h_inv_dim = pow_dimension(h_inv);       /* 1/h^d */
+
+  /* Calculate the first/second derivative of u/v. */
+  float fder_un[3], fder_vn[3][3];
+
+  for (int m = 0; m < 3; m++) {
+    fder_un[m] = p->magma.fder_u[m];
+    for (int n = 0; n < 3; n++) {
+      //sder_un[m][n] = p->magma.sder_u[m][n];
+      fder_vn[m][n] = p->magma.fder_v[m][n];
+      for (int l = 0; l < 3; l++) {
+        //sder_vn[m][n][l] = p->magma.sder_v[m][n][l];
+      }
+    }
+  }
+
+  for (int m = 0; m < 3; m++) {
+    p->magma.fder_u[m] = (fder_un[0] * c_matrix_temp[m][0] +
+                          fder_un[1] * c_matrix_temp[m][1] +
+                          fder_un[2] * c_matrix_temp[m][2]) *
+                         h_inv_dim;
+    for (int n = 0; n < 3; n++) {
+      //p->magma.sder_u[m][n] = (sder_un[m][0] * c_matrix[n][0] +
+        //                       sder_un[m][1] * p->magma.c_matrix[n][1] +
+        //                     sder_un[m][2] * p->magma.c_matrix[n][2]) *
+        //                      h_inv_dim;
+      /* Final Eq18. */
+      p->magma.fder_v[m][n] = (fder_vn[m][0] * c_matrix_temp[n][0] +
+                               fder_vn[m][1] * c_matrix_temp[n][1] +
+                               fder_vn[m][2] * c_matrix_temp[n][2]) *
+                              h_inv_dim;
+      for (int l = 0; l < 3; l++) {
+        //p->magma.sder_v[m][n][l] =
+          //  (sder_vn[m][n][0] * p->magma.c_matrix[l][0] +
+            // sder_vn[m][n][1] * p->magma.c_matrix[l][1] +
+            // sder_vn[m][n][2] * p->magma.c_matrix[l][2]) *
+           // h_inv_dim;
+      }
+    }
+  }
+
+
 
   /* Update other variables. */
   p->force.pressure = pressure;

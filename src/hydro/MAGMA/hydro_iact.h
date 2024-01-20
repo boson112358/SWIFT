@@ -128,21 +128,21 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_gradient(
   /* Compute the kernel function */
   const float h_inv = 1.f / hi;
   const float ui = r * h_inv;
-  float w;
-  kernel_eval(ui, &w);
+  float wi;
+  kernel_eval(ui, &wi);
 
   /* Get the mass and density. */
   const float mj = pj->mass;
   const float rhoj = pj->rho;
 
   /* Velocity difference */
-  const float vij[3] = {pj->v[0] - pi->v[0], pj->v[1] - pi->v[1],
-                        pj->v[2] - pi->v[2]};
+  //const float vij[3] = {pj->v[0] - pi->v[0], pj->v[1] - pi->v[1],
+    //                    pj->v[2] - pi->v[2]};
 
   /* Internal energy difference */
-  const float uij = pj->u - pi->u;
+  //const float uij = pj->u - pi->u;
 
-  const float common_term = w * mj / rhoj;
+  const float common_term = wi * mj / rhoj;
 
   /* The inverse of the C-matrix. eq. 6
    * It's symmetric so recall we only store the 6 useful terms. */
@@ -154,6 +154,7 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_gradient(
   pi->gradient.c_matrix_inv.yz += common_term * dx[1] * dx[2];
 
   /* Gradient of v (recall dx is pi - pj), eq. 18 */
+  /*
   pi->gradient.gradient_vx[0] -= common_term * vij[0] * dx[0];
   pi->gradient.gradient_vx[1] -= common_term * vij[0] * dx[1];
   pi->gradient.gradient_vx[2] -= common_term * vij[0] * dx[2];
@@ -169,6 +170,15 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_gradient(
   pi->gradient.gradient_u[0] -= common_term * uij * dx[0];
   pi->gradient.gradient_u[1] -= common_term * uij * dx[1];
   pi->gradient.gradient_u[2] -= common_term * uij * dx[2];
+  */
+  for (int i = 0; i < 3; i++) {
+    pi->magma.fder_u[i] -= pj->mass * (pj->u - pi->u) * dx[i] * wi / pj->rho;
+    for (int j = 0; j < 3; j++) {
+      /* Eq18 without multiplying matrix C. */
+      pi->magma.fder_v[i][j] -=
+          pj->mass * (pj->v[i] - pi->v[i]) * dx[j] * wi / pj->rho;
+    }
+  }
 }
 
 /**
@@ -287,14 +297,15 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_force(
 #ifndef USE_ZEROTH_ORDER_VELOCITIES
 
   /* Vectors from the particles to the mid-point */
-  const float delta_i[3] = {-0.5f * dx[0], -0.5f * dx[1], -0.5f * dx[2]};
-  const float delta_j[3] = {-delta_i[0], -delta_i[1], -delta_i[2]};
+  //const float delta_i[3] = {-0.5f * dx[0], -0.5f * dx[1], -0.5f * dx[2]};
+  //const float delta_j[3] = {-delta_i[0], -delta_i[1], -delta_i[2]};
 
   /* Terms entering the limiter (eq. 23) */
   const float eta_ij = sqrtf(fminf(eta_square_i, eta_square_j));
-  const float eta_crit = 1.0f;
+  const float eta_crit = 0.8f;
 
   /* Van Leer limiter fraction (eq. 22) */
+  /*
   const float A_ij_num = pi->force.gradient_vx[0] * dx[0] * dx[0] +
                          pi->force.gradient_vx[1] * dx[0] * dx[1] +
                          pi->force.gradient_vx[2] * dx[0] * dx[2] +
@@ -316,19 +327,68 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_force(
                          pj->force.gradient_vz[2] * dx[2] * dx[2];
 
   const float A_ij = A_ij_den != 0.f ? A_ij_num / A_ij_den : 0.f;
+  */
+
+  /* Get the slope constant A(Eq22). */
+  float Av_i = 0.f, Av_j = 0.f;
+  float Av_ij, Av_ji;
+
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      Av_i += pi->magma.fder_v[i][j] * dx[i] * dx[j];
+      Av_j += pj->magma.fder_v[i][j] * dx[i] * dx[j];
+    }
+  }
+
+  if (Av_i == 0.f &&
+      Av_j == 0.f) { /* For smooth velocity field, we turn off viscosity term*/
+    Av_ij = 1.f;
+    Av_ji = 1.f;
+  } else if ((Av_i == 0.f && Av_j != 0.f) ||
+             (Av_j == 0.f &&
+              Av_i != 0.f) || (Av_i == -Av_j)) { /* For extreme values, we add viscosity term*/
+    Av_ij = 0.f;
+    Av_ji = 0.f;
+  } else {
+    Av_ij = Av_i / Av_j;
+    Av_ji = Av_j / Av_i;
+  }
 
   /* Slope limiter exponential term (eq. 21, right term) */
+  /*
   const float exp_term =
       eta_ij < eta_crit
           ? expf(-25.f * (eta_ij - eta_crit) * (eta_ij - eta_crit))
           : 1.f;
-
+  */
   /* Van Leer limiter (eq. 21) */
+  /*
   const float fraction =
       (A_ij != -1.f) ? 4.f * A_ij / ((1.f + A_ij) * (1.f + A_ij)) : 1.f;
   const float Phi_ij = fmaxf(0.f, fminf(1.f, fraction)) * exp_term;
+  */
+
+  const float Avi_min = 4.f * Av_ij / ((1.f + Av_ij) * (1.f + Av_ij));
+  const float Avj_min = 4.f * Av_ji / ((1.f + Av_ji) * (1.f + Av_ji));
+  const float Fvi_min = min(1.f, Avi_min);
+  const float Fvj_min = min(1.f, Avj_min);
+  const float Fvi_max = max(0.f, Fvi_min);
+  const float Fvj_max = max(0.f, Fvj_min);
+
+  float Fv_ij, Fv_ji;
+
+  if (eta_ij > eta_crit) {
+    Fv_ij = Fvi_max;
+    Fv_ji = Fvj_max;
+  } else {
+    const float e_con = -(eta_ij - eta_crit) * (eta_ij - eta_crit) * 25.f;
+    const float F_exp = expf(e_con);
+    Fv_ij = Fvi_max * F_exp;
+    Fv_ji = Fvj_max * F_exp;
+  }
 
   /* Mid-point reconstruction, first order (eq. 17) */
+  /*
   v_rec_i[0] += Phi_ij * pi->force.gradient_vx[0] * delta_i[0];
   v_rec_i[0] += Phi_ij * pi->force.gradient_vx[1] * delta_i[1];
   v_rec_i[0] += Phi_ij * pi->force.gradient_vx[2] * delta_i[2];
@@ -348,6 +408,14 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_force(
   v_rec_j[2] += Phi_ij * pj->force.gradient_vz[0] * delta_j[0];
   v_rec_j[2] += Phi_ij * pj->force.gradient_vz[1] * delta_j[1];
   v_rec_j[2] += Phi_ij * pj->force.gradient_vz[2] * delta_j[2];
+  */
+
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3; j++) {
+      v_rec_i[i] -= Fv_ij * pi->magma.fder_v[i][j] * 0.5f * dx[j];
+      v_rec_j[i] += Fv_ji * pj->magma.fder_v[i][j] * 0.5f * dx[j];
+    }
+  }
 
 #endif
 
@@ -445,6 +513,7 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_force(
 #ifndef USE_ZEROTH_ORDER_VELOCITIES
 
   /* Mid-point reconstruction, first order (eq. 17) */
+  /*
   u_rec_i += pi->force.gradient_u[0] * delta_i[0];
   u_rec_i += pi->force.gradient_u[1] * delta_i[1];
   u_rec_i += pi->force.gradient_u[2] * delta_i[2];
@@ -452,7 +521,11 @@ __attribute__((always_inline)) INLINE static void runner_iact_nonsym_force(
   u_rec_j += pj->force.gradient_u[0] * delta_j[0];
   u_rec_j += pj->force.gradient_u[1] * delta_j[1];
   u_rec_j += pj->force.gradient_u[2] * delta_j[2];
-
+  */
+  for (int i = 0; i < 3; i++) {
+    u_rec_i -= pi->magma.fder_u[i] * 0.5f * dx[i];
+    u_rec_j += pj->magma.fder_u[i] * 0.5f * dx[i];
+  }
 #endif
 
   /* Difference in internal energy */

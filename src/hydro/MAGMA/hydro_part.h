@@ -128,6 +128,26 @@ struct part {
   /*! Particle density. */
   float rho;
 
+  /* Store matrix information of MAGMA in a separate struct. */
+  struct {
+    /*! correction matrix C. */
+    //float c_matrix[3][3];
+    /*! correction matrix D. */
+    float d_matrix[3][3];
+    /*! auxiliary gradient u. */
+    //float aux_u[3];
+    /*! auxiliary gradient v. */
+    //float aux_v[3][3];
+    /*! first derivative of u. */
+    float fder_u[3];
+    /*! first derivative of v. */
+    float fder_v[3][3];
+    /*! second derivative of u. */
+    //float sder_u[3][3];
+    /*! second derivative of v. */
+    //float sder_v[3][3][3];
+  } magma;
+
   /**
    * @brief Structure for the variables only used in the density loop over
    * neighbours.
@@ -161,16 +181,16 @@ struct part {
     struct sym_matrix c_matrix_inv;
 
     /*! Gradient of the x-component of the velocity */
-    float gradient_vx[3];
+    //float gradient_vx[3];
 
     /*! Gradient of the y-component of the velocity */
-    float gradient_vy[3];
+    //float gradient_vy[3];
 
     /*! Gradient of the z-component of the velocity */
-    float gradient_vz[3];
+    //float gradient_vz[3];
 
     /*! Gradient of the internal energy */
-    float gradient_u[3];
+    //float gradient_u[3];
 
   } gradient;
 
@@ -199,16 +219,16 @@ struct part {
     struct sym_matrix c_matrix;
 
     /*! Gradient of the x-component of the velocity */
-    float gradient_vx[3];
+    //float gradient_vx[3];
 
     /*! Gradient of the y-component of the velocity */
-    float gradient_vy[3];
+    //float gradient_vy[3];
 
     /*! Gradient of the z-component of the velocity */
-    float gradient_vz[3];
+    //float gradient_vz[3];
 
     /*! Gradient of the internal energy */
-    float gradient_u[3];
+    //float gradient_u[3];
 
   } force;
 
