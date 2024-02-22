@@ -142,9 +142,31 @@ INLINE static void rt_do_thermochemistry(
   if (density <= 0.) return;
 
   const float u_minimal = hydro_props->minimal_internal_energy;
+#ifdef GIZMO_MFV_SPH
   gr_float internal_energy =
       max(hydro_get_physical_internal_energy(p, xp, cosmo), u_minimal);
   const float u_old = internal_energy;
+#else
+  float u_old = hydro_get_drifted_physical_internal_energy(p, cosmo);
+  
+  double dt_therm = dt;
+
+  gr_float u_ad_before = max(u_old, u_minimal);
+  u_old = u_ad_before;
+	  //+ dt_therm * hydro_get_physical_internal_energy_dt(p, cosmo);
+  /*
+  if (u_ad_before < u_minimal) {
+    u_ad_before = u_minimal;
+    const float du_dt = (u_ad_before - u_old) / dt_therm;
+    hydro_set_physical_internal_energy_dt(p, cosmo, du_dt);
+  }
+  */
+  //float u_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
+
+  //message("hydro_get_physical_internal_energy_dt: %e", u_dt);
+
+  gr_float internal_energy = u_ad_before;
+#endif
 
   gr_float species_densities[RT_N_SPECIES];
   rt_tchem_get_species_densities(p, density, species_densities);
@@ -195,6 +217,18 @@ INLINE static void rt_do_thermochemistry(
 #ifdef GIZMO_MFV_SPH
   hydro_set_internal_energy(p, u_new);
 #else
+  //hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
+  /* Get the change in internal energy due to hydro forces */
+  float hydro_du_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
+  
+  /* Calculate the cooling rate */
+  float cool_du_dt = 2.f * (u_new - u_ad_before) / dt_therm;
+  float du_dt = cool_du_dt + hydro_du_dt;
+  
+  //message("hydro_du_dt: %e, cool_du_dt: %e", hydro_du_dt, cool_du_dt);
+  /* Update the internal energy time derivative */
+  hydro_set_physical_internal_energy_dt(p, cosmo, du_dt);
+
   hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
 #endif
 
