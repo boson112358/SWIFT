@@ -147,7 +147,7 @@ INLINE static void rt_do_thermochemistry(
       max(hydro_get_physical_internal_energy(p, xp, cosmo), u_minimal);
   const float u_old = internal_energy;
 #else
-  float u_old = hydro_get_drifted_physical_internal_energy(p, cosmo);
+  float u_old = hydro_get_physical_internal_energy(p, xp, cosmo);
   
   double dt_therm = dt;
 
@@ -219,17 +219,17 @@ INLINE static void rt_do_thermochemistry(
 #else
   //hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
   /* Get the change in internal energy due to hydro forces */
-  float hydro_du_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
+  //float hydro_du_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
   
   /* Calculate the cooling rate */
   float cool_du_dt = 2.f * (u_new - u_ad_before) / dt_therm;
-  float du_dt = cool_du_dt + hydro_du_dt;
+  float du_dt = cool_du_dt; //+ hydro_du_dt;
   
   //message("hydro_du_dt: %e, cool_du_dt: %e", hydro_du_dt, cool_du_dt);
   /* Update the internal energy time derivative */
   hydro_set_physical_internal_energy_dt(p, cosmo, du_dt);
 
-  hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
+  //hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
 #endif
 
   /* Update mass fractions */
