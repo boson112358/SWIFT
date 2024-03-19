@@ -1193,6 +1193,7 @@ void runner_do_rt_tchem(struct runner *r, struct cell *c, int timer) {
   const int with_cosmology = (e->policy & engine_policy_cosmology);
   struct rt_props *rt_props = e->rt_props;
   const struct hydro_props *hydro_props = e->hydro_properties;
+  const struct cooling_function_data *cooling_func = e->cooling_func;
   const struct cosmology *cosmo = e->cosmology;
   const struct phys_const *phys_const = e->physical_constants;
   const struct unit_system *us = e->internal_units;
@@ -1249,7 +1250,7 @@ void runner_do_rt_tchem(struct runner *r, struct cell *c, int timer) {
       rt_finalise_transport(p, dt, cosmo);
 
       /* And finally do thermochemistry */
-      rt_tchem(p, xp, rt_props, cosmo, hydro_props, phys_const, us, dt);
+      rt_tchem(p, xp, rt_props, cosmo, hydro_props, cooling_func, phys_const, us, dt);
     }
   }
 
