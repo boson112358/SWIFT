@@ -344,6 +344,7 @@ __attribute__((always_inline)) INLINE static float rt_compute_timestep(
     const struct part* restrict p, const struct xpart* restrict xp,
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
+    const struct cooling_function_data *cooling,
     const struct phys_const* restrict phys_const,
     const struct unit_system* restrict us) {
 
@@ -360,7 +361,7 @@ __attribute__((always_inline)) INLINE static float rt_compute_timestep(
   if (rt_props->f_limit_cooling_time > 0.f)
     /* Note: cooling time may be negative if the gas is being heated */
     dt_cool = rt_props->f_limit_cooling_time *
-              rt_tchem_get_tchem_time(p, xp, rt_props, cosmo, hydro_props,
+              rt_tchem_get_tchem_time(p, xp, rt_props, cosmo, hydro_props, cooling,
                                       phys_const, us);
 
   return min(dt, fabsf(dt_cool));
@@ -521,6 +522,7 @@ __attribute__((always_inline)) INLINE static void rt_tchem(
     struct part* restrict p, struct xpart* restrict xp,
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
+    const struct cooling_function_data *cooling,
     const struct phys_const* restrict phys_const,
     const struct unit_system* restrict us, const double dt) {
 
@@ -531,7 +533,7 @@ __attribute__((always_inline)) INLINE static void rt_tchem(
 
   /* Note: Can't pass rt_props as const struct because of grackle
    * accessinging its properties there */
-  rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us, dt,
+  rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, cooling, phys_const, us, dt,
                         0);
 }
 

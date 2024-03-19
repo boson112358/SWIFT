@@ -125,6 +125,7 @@ INLINE static void rt_do_thermochemistry(
     struct part* restrict p, struct xpart* restrict xp,
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
+    const struct cooling_function_data *cooling,
     const struct phys_const* restrict phys_const,
     const struct unit_system* restrict us, const double dt, int depth) {
   /* Note: Can't pass rt_props as const struct because of grackle
@@ -167,7 +168,7 @@ INLINE static void rt_do_thermochemistry(
 
   gr_float species_densities[RT_N_SPECIES];
   gr_float species_extra[rt_species_extra_count];
-  rt_grackle_cooling_get_species_densities(p, density, species_densities, species_extra, rt_props);
+  rt_grackle_cooling_get_species_densities(p, density, species_densities, species_extra, cooling);
 
   float radiation_energy_density[RT_NGROUPS];
   rt_part_get_radiation_energy_density(p, radiation_energy_density);
@@ -203,9 +204,9 @@ INLINE static void rt_do_thermochemistry(
     /* Note that grackle already has internal "10% rules". But sometimes, they
      * may not suffice. */
     rt_clean_grackle_fields(&particle_grackle_data);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us,
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, cooling, phys_const, us,
                           0.5 * dt, depth + 1);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us,
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, cooling, phys_const, us,
                           0.5 * dt, depth + 1);
     return;
   }
@@ -289,6 +290,7 @@ __attribute__((always_inline)) INLINE static float rt_tchem_get_tchem_time(
     const struct part* restrict p, const struct xpart* restrict xp,
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
+    const struct cooling_function_data *cooling,
     const struct phys_const* restrict phys_const,
     const struct unit_system* restrict us) {
   /* Note: Can't pass rt_props as const struct because of grackle
@@ -304,7 +306,7 @@ __attribute__((always_inline)) INLINE static float rt_tchem_get_tchem_time(
 
   gr_float species_densities[RT_N_SPECIES];
   gr_float species_extra[rt_species_extra_count] = {0};
-  rt_grackle_cooling_get_species_densities(p, density, species_densities, species_extra, rt_props);
+  rt_grackle_cooling_get_species_densities(p, density, species_densities, species_extra, cooling);
 
   float radiation_energy_density[RT_NGROUPS];
   rt_part_get_radiation_energy_density(p, radiation_energy_density);

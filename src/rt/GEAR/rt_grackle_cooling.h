@@ -19,7 +19,7 @@
 #ifndef SWIFT_RT_GEAR_GRACKLE_COOLING_H
 #define SWIFT_RT_GEAR_GRACKLE_COOLING_H
 
-#include "chemistry.h"
+#include "cooling.h"
 
 /**
  * @file src/rt/GEAR/rt_grackle_cooling.h
@@ -36,25 +36,25 @@
  */
 __attribute__((always_inline)) INLINE float rt_grackle_cooling_compute_G0(
                 const struct part *restrict p,
-                const struct rt_props* rt_props) {
+                const struct cooling_function_data *cooling) {
 
       float G0 = 0.f;
       /* Determine ISRF in Habing units based on chosen method */
-      if (rt_props->G0_computation_method==0) {
+      if (cooling->G0_computation_method==0) {
           G0 = 0.f;
       }
-      else if (rt_props->G0_computation_method==1) {
-          G0 = p->chemistry_data.local_sfr_density * rt_props->G0_factor1;
+      else if (cooling->G0_computation_method==1) {
+          G0 = p->chemistry_data.local_sfr_density * cooling->G0_factor1;
       }
-      else if (rt_props->G0_computation_method==2) {
-          G0 = p->group_data.ssfr * rt_props->G0_factor2;
+      else if (cooling->G0_computation_method==2) {
+          G0 = p->group_data.ssfr * cooling->G0_factor2;
       }
-      else if (rt_props->G0_computation_method==3) {
+      else if (cooling->G0_computation_method==3) {
           if (p->group_data.ssfr > 0.) {
-              G0 = p->group_data.ssfr * rt_props->G0_factor2;
+              G0 = p->group_data.ssfr * cooling->G0_factor2;
           }
           else {
-              G0 = p->chemistry_data.local_sfr_density * rt_props->G0_factor1;
+              G0 = p->chemistry_data.local_sfr_density * cooling->G0_factor1;
           }
       }
       return G0;
@@ -72,7 +72,7 @@ __attribute__((always_inline)) INLINE static void
 rt_grackle_cooling_get_species_densities(const struct part* restrict p, gr_float rho,
                                gr_float species_densities[RT_N_SPECIES],
                                gr_float species_extra[rt_species_extra_count],
-                               const struct rt_props* rt_props) {
+                               const struct cooling_function_data *cooling) {
     
     /* nHII = rho_HII / m_p
      * nHeII = rho_HeII / 4 m_p
@@ -91,7 +91,7 @@ rt_grackle_cooling_get_species_densities(const struct part* restrict p, gr_float
   //if( chemistry_get_total_metal_mass_fraction_for_cooling(p)>0.f) message("Zsm= %g Zp= %g Z= %g Zd= %g",chemistry_get_total_metal_mass_fraction_for_cooling(p), p->chemistry_data.metal_mass_fraction_total, species_densities[19], species_densities[20]);
   
   /* Determine ISRF in Habing units based on chosen method */
-  species_extra[rt_species_isrf_habing] = rt_grackle_cooling_compute_G0(p, rt_props);
+  species_extra[rt_species_isrf_habing] = rt_grackle_cooling_compute_G0(p, cooling);
   
   /* Load gas metallicities NEED TO CHANGE TO RIGHT COUNT  */
   int i = 0;
