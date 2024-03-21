@@ -154,12 +154,15 @@ INLINE static void rt_do_thermochemistry(
       max(hydro_get_physical_internal_energy(p, xp, cosmo), u_minimal);
   const float u_old = internal_energy;
 #else
-  float u_old = hydro_get_physical_internal_energy(p, xp, cosmo);
+  const float u_start = hydro_get_physical_internal_energy(p, xp, cosmo);
+
+  const float hydro_du_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
   
   double dt_therm = dt;
 
-  gr_float u_ad_before = max(u_old, u_minimal);
-  u_old = u_ad_before;
+  //float u_old = (u_start + hydro_du_dt * dt_therm);
+
+  float u_old = max(u_start, u_minimal);
 	  //+ dt_therm * hydro_get_physical_internal_energy_dt(p, cosmo);
   /*
   if (u_ad_before < u_minimal) {
@@ -170,9 +173,7 @@ INLINE static void rt_do_thermochemistry(
   */
   //float u_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
 
-  //message("hydro_get_physical_internal_energy_dt: %e", u_dt);
-
-  gr_float internal_energy = u_ad_before;
+  gr_float internal_energy = u_old;
 #endif
 
   gr_float species_densities[RT_N_SPECIES];
@@ -229,12 +230,19 @@ INLINE static void rt_do_thermochemistry(
   //float hydro_du_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
   
   /* Calculate the cooling rate */
-  float cool_du_dt = 2.f * (u_new - u_ad_before) / dt_therm;
-  float du_dt = cool_du_dt; //+ hydro_du_dt;
+  float cool_du_dt = (u_new - u_old) / dt_therm;
+  if (cool_du_dt > hydro_du_dt){
+    hydro_set_physical_internal_energy(p, xp, cosmo, u_new);
+    //hydro_set_drifted_physical_internal_energy(p, cosmo, pressure_floor,
+      //                                         u_new);
+    hydro_set_physical_internal_energy_dt(p, cosmo, 0.);
+  } else {
+    hydro_set_physical_internal_energy_dt(p, cosmo, hydro_du_dt);
+  }
   
   //message("hydro_du_dt: %e, cool_du_dt: %e", hydro_du_dt, cool_du_dt);
   /* Update the internal energy time derivative */
-  hydro_set_physical_internal_energy_dt(p, cosmo, du_dt);
+  // hydro_set_physical_internal_energy_dt(p, cosmo, du_dt);
 
   //hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
 #endif
