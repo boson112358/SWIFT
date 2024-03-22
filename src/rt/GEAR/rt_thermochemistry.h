@@ -126,6 +126,7 @@ INLINE static void rt_do_thermochemistry(
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
     const struct phys_const* restrict phys_const,
+    const struct pressure_floor_props *pressure_floor,
     const struct unit_system* restrict us, const double dt, int depth) {
   /* Note: Can't pass rt_props as const struct because of grackle
    * accessinging its properties there */
@@ -160,9 +161,9 @@ INLINE static void rt_do_thermochemistry(
   
   double dt_therm = dt;
 
-  //float u_old = (u_start + hydro_du_dt * dt_therm);
+  float u_old = (u_start + hydro_du_dt * dt_therm);
 
-  float u_old = max(u_start, u_minimal);
+  u_old = max(u_start, u_minimal);
 	  //+ dt_therm * hydro_get_physical_internal_energy_dt(p, cosmo);
   /*
   if (u_ad_before < u_minimal) {
@@ -214,9 +215,9 @@ INLINE static void rt_do_thermochemistry(
     /* Note that grackle already has internal "10% rules". But sometimes, they
      * may not suffice. */
     rt_clean_grackle_fields(&particle_grackle_data);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us,
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, pressure_floor, us,
                           0.5 * dt, depth + 1);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us,
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, pressure_floor, us,
                           0.5 * dt, depth + 1);
     return;
   }
@@ -231,7 +232,8 @@ INLINE static void rt_do_thermochemistry(
   
   /* Calculate the cooling rate */
   float cool_du_dt = (u_new - u_old) / dt_therm;
-  if (cool_du_dt > hydro_du_dt){
+  //message("hydro_du_dt: %e, cool_du_dt: %e", hydro_du_dt, cool_du_dt);
+  if (fabsf(cool_du_dt) > fabsf(hydro_du_dt)){
     hydro_set_physical_internal_energy(p, xp, cosmo, u_new);
     //hydro_set_drifted_physical_internal_energy(p, cosmo, pressure_floor,
       //                                         u_new);
