@@ -518,6 +518,7 @@ __attribute__((always_inline)) INLINE static void rt_tchem(
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
     const struct phys_const* restrict phys_const,
+    const struct pressure_floor_props *pressure_floor,
     const struct unit_system* restrict us, const double dt) {
 
 #ifdef SWIFT_RT_DEBUG_CHECKS
@@ -527,7 +528,7 @@ __attribute__((always_inline)) INLINE static void rt_tchem(
 
   /* Note: Can't pass rt_props as const struct because of grackle
    * accessinging its properties there */
-  rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us, dt,
+  rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, pressure_floor, us, dt,
                         0);
 }
 
