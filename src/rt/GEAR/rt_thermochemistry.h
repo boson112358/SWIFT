@@ -126,7 +126,6 @@ INLINE static void rt_do_thermochemistry(
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
     const struct phys_const* restrict phys_const,
-    const struct pressure_floor_props *pressure_floor,
     const struct unit_system* restrict us, const double dt, int depth) {
   /* Note: Can't pass rt_props as const struct because of grackle
    * accessinging its properties there */
@@ -161,18 +160,7 @@ INLINE static void rt_do_thermochemistry(
   
   double dt_therm = dt;
 
-  float u_old = (u_start + hydro_du_dt * dt_therm);
-
-  u_old = max(u_start, u_minimal);
-	  //+ dt_therm * hydro_get_physical_internal_energy_dt(p, cosmo);
-  /*
-  if (u_ad_before < u_minimal) {
-    u_ad_before = u_minimal;
-    const float du_dt = (u_ad_before - u_old) / dt_therm;
-    hydro_set_physical_internal_energy_dt(p, cosmo, du_dt);
-  }
-  */
-  //float u_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
+  float u_old = max(u_start, u_minimal);
 
   gr_float internal_energy = u_old;
 #endif
@@ -226,27 +214,18 @@ INLINE static void rt_do_thermochemistry(
 #ifdef GIZMO_MFV_SPH
   hydro_set_internal_energy(p, u_new);
 #else
-  //hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
-  /* Get the change in internal energy due to hydro forces */
-  //float hydro_du_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
-  
+
   /* Calculate the cooling rate */
   float cool_du_dt = (u_new - u_old) / dt_therm;
-  //message("hydro_du_dt: %e, cool_du_dt: %e", hydro_du_dt, cool_du_dt);
   if (fabsf(cool_du_dt) > fabsf(hydro_du_dt)){
     hydro_set_physical_internal_energy(p, xp, cosmo, u_new);
-    //hydro_set_drifted_physical_internal_energy(p, cosmo, pressure_floor,
-      //                                         u_new);
+  
     hydro_set_physical_internal_energy_dt(p, cosmo, 0.);
   } else {
     hydro_set_physical_internal_energy_dt(p, cosmo, hydro_du_dt);
   }
   
-  //message("hydro_du_dt: %e, cool_du_dt: %e", hydro_du_dt, cool_du_dt);
-  /* Update the internal energy time derivative */
-  // hydro_set_physical_internal_energy_dt(p, cosmo, du_dt);
 
-  //hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
 #endif
 
   /* Update mass fractions */
