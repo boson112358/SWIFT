@@ -65,6 +65,8 @@ __attribute__((always_inline)) INLINE static void rt_tchem_first_init_part(
       p->rt_data.tchem.mass_fraction[rt_species_HeII] = rt_props->mass_fraction_HeII_init;
       p->rt_data.tchem.mass_fraction[rt_species_HeIII] = rt_props->mass_fraction_HeIII_init;
     }
+
+    p->rt_data.tchem.mass_fraction[rt_species_e] = p->rt_data.tchem.mass_fraction[rt_species_HII] + 0.25 * p->rt_data.tchem.mass_fraction[rt_species_HeII] + 0.5 * p->rt_data.tchem.mass_fraction[rt_species_HeIII];
   #endif
   
   /* for primordial_chemistry >= 2 */
@@ -140,9 +142,21 @@ INLINE static void rt_do_thermochemistry(
   if (density <= 0.) return;
 
   const float u_minimal = hydro_props->minimal_internal_energy;
+#ifdef GIZMO_MFV_SPH
   gr_float internal_energy =
       max(hydro_get_physical_internal_energy(p, xp, cosmo), u_minimal);
   const float u_old = internal_energy;
+#else
+  const float u_start = hydro_get_physical_internal_energy(p, xp, cosmo);
+
+  const float hydro_du_dt = hydro_get_physical_internal_energy_dt(p, cosmo);
+  
+  double dt_therm = dt;
+
+  float u_old = max(u_start, u_minimal);
+
+  gr_float internal_energy = u_old;
+#endif
 
   gr_float species_densities[RT_N_SPECIES];
   rt_tchem_get_species_densities(p, density, species_densities);
@@ -193,7 +207,18 @@ INLINE static void rt_do_thermochemistry(
 #ifdef GIZMO_MFV_SPH
   hydro_set_internal_energy(p, u_new);
 #else
-  hydro_set_physical_internal_energy_TESTING_SPH_RT(p, cosmo, u_new);
+
+  /* Calculate the cooling rate */
+  float cool_du_dt = (u_new - u_old) / dt_therm;
+  if (fabsf(cool_du_dt) > fabsf(hydro_du_dt)){
+    hydro_set_physical_internal_energy(p, xp, cosmo, u_new);
+  
+    hydro_set_physical_internal_energy_dt(p, cosmo, 0.);
+  } else {
+    hydro_set_physical_internal_energy_dt(p, cosmo, hydro_du_dt);
+  }
+  
+
 #endif
 
   /* Update mass fractions */
@@ -210,6 +235,8 @@ INLINE static void rt_do_thermochemistry(
       particle_grackle_data.HeII_density[0] * one_over_rho;
   p->rt_data.tchem.mass_fraction[rt_species_HeIII] =
       particle_grackle_data.HeIII_density[0] * one_over_rho;
+  p->rt_data.tchem.mass_fraction[rt_species_e] =
+      particle_grackle_data.e_density[0] * one_over_rho;
 #endif
   /* for primordial_chemistry >= 2 */
 #if GEARRT_GRACKLE_MODE >= 2
