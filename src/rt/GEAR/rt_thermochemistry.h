@@ -203,9 +203,9 @@ INLINE static void rt_do_thermochemistry(
     /* Note that grackle already has internal "10% rules". But sometimes, they
      * may not suffice. */
     rt_clean_grackle_fields(&particle_grackle_data);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, pressure_floor, us,
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us,
                           0.5 * dt, depth + 1);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, pressure_floor, us,
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, us,
                           0.5 * dt, depth + 1);
     return;
   }
