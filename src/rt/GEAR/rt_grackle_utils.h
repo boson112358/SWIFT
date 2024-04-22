@@ -27,7 +27,7 @@
 
 #include <grackle.h>
 
-#include "cooling_io.h"
+#include "cooling_io.h" /* include here is because we need to include cooling struct */
 
 /* need to rework (and check) code if changed */
 #define FIELD_SIZE 1
