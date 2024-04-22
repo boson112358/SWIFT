@@ -227,7 +227,7 @@ __attribute__((always_inline)) INLINE static void rt_props_print(
 __attribute__((always_inline)) INLINE static void rt_props_init(
     struct rt_props* rtp, const struct phys_const* phys_const,
     const struct unit_system* us, struct swift_params* params,
-    struct cosmology* cosmo) {
+    struct cosmology* cosmo, struct cooling_function_data* cooling) {
 
   /* Make sure we reset debugging counters correctly after
    * zeroth step. */
@@ -446,13 +446,17 @@ __attribute__((always_inline)) INLINE static void rt_props_init(
 
   /* Grackle setup */
   /* ------------- */
+
+  /* Read the data from the cooling */
+  cooling_read_parameters(params, cooling, phys_const, us);
+
   rtp->grackle_verbose =
       parser_get_opt_param_int(params, "GEARRT:grackle_verbose", /*default=*/0);
   rtp->case_B_recombination = parser_get_opt_param_int(
       params, "GEARRT:case_B_recombination", /*default=*/1);
   rt_init_grackle(&rtp->grackle_units, &rtp->grackle_chemistry_data,
                   &rtp->grackle_chemistry_rates, rtp->hydrogen_mass_fraction,
-                  rtp->grackle_verbose, rtp->case_B_recombination, us);
+                  rtp->grackle_verbose, rtp->case_B_recombination, us, cooling);
 
   /* Pre-compute interaction rates/cross sections */
   /* -------------------------------------------- */
@@ -494,7 +498,7 @@ __attribute__((always_inline)) INLINE static void rt_struct_dump(
  */
 __attribute__((always_inline)) INLINE static void rt_struct_restore(
     struct rt_props* props, FILE* stream, const struct phys_const* phys_const,
-    const struct unit_system* us) {
+    const struct unit_system* us, struct cooling_function_data* cooling) {
 
   restart_read_blocks((void*)props, sizeof(struct rt_props), 1, stream, NULL,
                       "RT properties struct");
@@ -502,7 +506,7 @@ __attribute__((always_inline)) INLINE static void rt_struct_restore(
   rt_init_grackle(&props->grackle_units, &props->grackle_chemistry_data,
                   &props->grackle_chemistry_rates,
                   props->hydrogen_mass_fraction, props->grackle_verbose,
-                  props->case_B_recombination, us);
+                  props->case_B_recombination, us, cooling);
 
   props->energy_weighted_cross_sections = NULL;
   props->number_weighted_cross_sections = NULL;

@@ -27,6 +27,8 @@
 
 #include <grackle.h>
 
+#include "cooling_io.h"
+
 /* need to rework (and check) code if changed */
 #define FIELD_SIZE 1
 
@@ -50,7 +52,8 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
     code_units *grackle_units, chemistry_data *grackle_chemistry_data,
     chemistry_data_storage *grackle_chemistry_rates,
     float hydrogen_mass_fraction, const int grackle_verb,
-    const int case_B_recombination, const struct unit_system *us) {
+    const int case_B_recombination, const struct unit_system *us,
+    struct cooling_function_data* cooling) {
 
   grackle_verbose = grackle_verb;
 
@@ -77,14 +80,14 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
   if (local_initialize_chemistry_parameters(grackle_chemistry_data) == 0) {
     error("Error in set_default_chemistry_parameters.");
   }
-
+  
   /* chemistry on */
   grackle_chemistry_data->use_grackle = 1;
   /* cooling on */
   /* NOTE: without cooling on, it also won't heat... */
   grackle_chemistry_data->with_radiative_cooling = 1;
   /* 6 species atomic H and He */
-  grackle_chemistry_data->primordial_chemistry = 1;
+  grackle_chemistry_data->primordial_chemistry = 2;
   /* No dust processes */
   grackle_chemistry_data->dust_chemistry = 0;
   /* No H2 formation on dust */
@@ -96,7 +99,7 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
   /* UV background off */
   grackle_chemistry_data->UVbackground = 0;
   /* data file - currently not used */
-  grackle_chemistry_data->grackle_data_file = "";
+  grackle_chemistry_data->grackle_data_file = cooling->cloudy_table;
   /* adiabatic index */
   grackle_chemistry_data->Gamma = hydro_gamma;
   /* we'll provide grackle with ionization and heating rates from RT */
@@ -107,11 +110,50 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
   /* Use case B recombination? (On-the-spot approximation) */
   grackle_chemistry_data->CaseBRecombination = case_B_recombination;
 
+  // Turn on Li+ 2019 dust evolution model
+  grackle_chemistry_data->use_dust_evol = cooling->use_grackle_dust_evol;
+
+  // Load dust evolution parameters
+  if (cooling->use_grackle_dust_evol == 1) {
+    grackle_chemistry_data->dust_destruction_eff = cooling->dust_destruction_eff;
+    grackle_chemistry_data->sne_coeff = cooling->dust_sne_coeff;
+    grackle_chemistry_data->sne_shockspeed = cooling->dust_sne_shockspeed;
+    grackle_chemistry_data->dust_grainsize = cooling->dust_grainsize;
+    grackle_chemistry_data->dust_growth_densref = cooling->dust_growth_densref;
+    grackle_chemistry_data->dust_growth_tauref = cooling->dust_growth_tauref;
+    // Enable dust temperature calculation using ISRF
+    grackle_chemistry_data->metal_cooling = 1;
+    grackle_chemistry_data->dust_chemistry = 1;
+    grackle_chemistry_data->h2_on_dust = 1;
+    grackle_chemistry_data->use_isrf_field = 1;
+    grackle_chemistry_data->H2_self_shielding = 3;
+    // Solar abundances to pass to Grackle
+    grackle_chemistry_data->SolarAbundances[0]=0.2485;  // He  (10.93 in units where log[H]=12, so photospheric mass fraction -> Y=0.2485 [Hydrogen X=0.7381]; Anders+Grevesse Y=0.2485, X=0.7314)
+    grackle_chemistry_data->SolarAbundances[1]=2.38e-3; // C   (8.43 -> 2.38e-3, AG=3.18e-3)
+    grackle_chemistry_data->SolarAbundances[2]=0.70e-3; // N   (7.83 -> 0.70e-3, AG=1.15e-3)
+    grackle_chemistry_data->SolarAbundances[3]=5.79e-3; // O   (8.69 -> 5.79e-3, AG=9.97e-3)
+    grackle_chemistry_data->SolarAbundances[4]=1.26e-3; // Ne  (7.93 -> 1.26e-3, AG=1.72e-3)
+    grackle_chemistry_data->SolarAbundances[5]=7.14e-4; // Mg  (7.60 -> 7.14e-4, AG=6.75e-4)
+    grackle_chemistry_data->SolarAbundances[6]=6.71e-3; // Si  (7.51 -> 6.71e-4, AG=7.30e-4)
+    grackle_chemistry_data->SolarAbundances[7]=3.12e-4; // S   (7.12 -> 3.12e-4, AG=3.80e-4)
+    grackle_chemistry_data->SolarAbundances[8]=0.65e-4; // Ca  (6.34 -> 0.65e-4, AG=0.67e-4)
+    grackle_chemistry_data->SolarAbundances[9]=1.31e-3; // Fe (7.50 -> 1.31e-3, AG=1.92e-3)
+  } else {
+    grackle_chemistry_data->use_dust_evol = 0;
+  }
+  
   if (local_initialize_chemistry_data(grackle_chemistry_data,
                                       grackle_chemistry_rates,
                                       grackle_units) == 0) {
     error("Error in initialize_chemistry_data");
   }
+
+  /* Initialize the chemistry object. */
+  /*
+  if (initialize_chemistry_data(grackle_units) == 0) {
+    error("Error in initialize_chemistry_data.");
+  }
+  */
 }
 
 /**

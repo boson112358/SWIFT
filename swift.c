@@ -1174,10 +1174,11 @@ int main(int argc, char *argv[]) {
       bzero(&feedback_properties, sizeof(struct feedback_props));
 
     /* Initialize RT properties */
+    bzero(&cooling_func, sizeof(struct cooling_function_data));
     if (with_rt) {
       if (hydro_properties.particle_splitting)
         error("Can't run with RT and particle splitting as of yet.");
-      rt_props_init(&rt_properties, &prog_const, &us, params, &cosmo);
+      rt_props_init(&rt_properties, &prog_const, &us, params, &cosmo, &cooling_func);
     } else
       bzero(&rt_properties, sizeof(struct rt_props));
 
@@ -1205,7 +1206,7 @@ int main(int argc, char *argv[]) {
           " but compiled without it.");
     }
 #endif
-    bzero(&cooling_func, sizeof(struct cooling_function_data));
+    // bzero(&cooling_func, sizeof(struct cooling_function_data));
     if (with_cooling || with_temperature) {
       cooling_init(params, &us, &prog_const, &hydro_properties, &cooling_func);
     }
