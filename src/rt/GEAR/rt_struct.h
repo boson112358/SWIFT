@@ -64,14 +64,6 @@ struct rt_part_data {
   /* } limiter[RT_NGROUPS]; */
 
   /* Data for thermochemistry */
-  struct {
-    float mass_fraction_HI;         /* mass fraction taken by HI */
-    float mass_fraction_HII;        /* mass fraction taken by HII */
-    float mass_fraction_HeI;        /* mass fraction taken by HeI */
-    float mass_fraction_HeII;       /* mass fraction taken by HeII */
-    float mass_fraction_HeIII;      /* mass fraction taken by HeIII */
-    float number_density_electrons; /* number density of electrons */
-  } tchem;
 
 #ifdef GIZMO_MFV_SPH
   /* Keep track of the actual mass fluxes of the gas species */

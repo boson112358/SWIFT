@@ -112,21 +112,7 @@ __attribute__((always_inline)) INLINE static float rt_tchem_internal_energy_dT(
 __attribute__((always_inline)) INLINE static void
 rt_tchem_get_species_densities(const struct part* restrict p, gr_float rho,
                                gr_float species_densities[6]) {
-
-  species_densities[0] = p->rt_data.tchem.mass_fraction_HI * rho;
-  species_densities[1] = p->rt_data.tchem.mass_fraction_HII * rho;
-  species_densities[2] = p->rt_data.tchem.mass_fraction_HeI * rho;
-  species_densities[3] = p->rt_data.tchem.mass_fraction_HeII * rho;
-  species_densities[4] = p->rt_data.tchem.mass_fraction_HeIII * rho;
-
-  /* nHII = rho_HII / m_p
-   * nHeII = rho_HeII / 4 m_p
-   * nHeIII = rho_HeIII / 4 m_p
-   * ne = nHII + nHeII + 2 * nHeIII
-   * But: it is grackle convention to use rho_e = n_e * m_p */
-  const gr_float rho_e = species_densities[1] + 0.25 * species_densities[3] +
-                         0.5 * species_densities[4];
-  species_densities[5] = rho_e;
+/* Clear it for now since we use the function in cooling module. */
 }
 
 /**
@@ -162,27 +148,11 @@ rt_tchem_get_ionizing_species_number_densities(
  * @param phys_const physical constants struct
  * @param cosmo cosmology struct
  **/
-__attribute__((always_inline)) INLINE static double
+__attribute__((always_inline)) INLINE static void
 rt_tchem_get_gas_temperature(const struct part* restrict p,
                              const struct phys_const* restrict phys_const,
                              const struct cosmology* restrict cosmo) {
-
-  const double kB = phys_const->const_boltzmann_k;
-  const double mp = phys_const->const_proton_mass;
-
-  const float XHI = p->rt_data.tchem.mass_fraction_HI;
-  const float XHII = p->rt_data.tchem.mass_fraction_HII;
-  const float XHeI = p->rt_data.tchem.mass_fraction_HeI;
-  const float XHeII = p->rt_data.tchem.mass_fraction_HeII;
-  const float XHeIII = p->rt_data.tchem.mass_fraction_HeIII;
-
-  const double mu =
-      rt_tchem_get_mean_molecular_weight(XHI, XHII, XHeI, XHeII, XHeIII);
-  const double u = hydro_get_drifted_physical_internal_energy(p, cosmo);
-
-  double T = rt_tchem_temperature_from_internal_energy(u, mu, kB, mp);
-
-  return T;
+/* Clear this for now since I didnt see anywhere it has been used. */
 }
 
 /**

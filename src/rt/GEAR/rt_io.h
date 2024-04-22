@@ -53,21 +53,7 @@ INLINE static int rt_read_particles(const struct part* parts,
                                         rt_data.radiation[phg].flux);
   }
 
-  list[count++] = io_make_input_field("MassFractionHI", FLOAT, 1, OPTIONAL,
-                                      UNIT_CONV_NO_UNITS, parts,
-                                      rt_data.tchem.mass_fraction_HI);
-  list[count++] = io_make_input_field("MassFractionHII", FLOAT, 1, OPTIONAL,
-                                      UNIT_CONV_NO_UNITS, parts,
-                                      rt_data.tchem.mass_fraction_HII);
-  list[count++] = io_make_input_field("MassFractionHeI", FLOAT, 1, OPTIONAL,
-                                      UNIT_CONV_NO_UNITS, parts,
-                                      rt_data.tchem.mass_fraction_HeI);
-  list[count++] = io_make_input_field("MassFractionHeII", FLOAT, 1, OPTIONAL,
-                                      UNIT_CONV_NO_UNITS, parts,
-                                      rt_data.tchem.mass_fraction_HeII);
-  list[count++] = io_make_input_field("MassFractionHeIII", FLOAT, 1, OPTIONAL,
-                                      UNIT_CONV_NO_UNITS, parts,
-                                      rt_data.tchem.mass_fraction_HeIII);
+  /* Delete read the particle species mass fraction since we dont need to read here. */
 
   return count;
 }
@@ -140,11 +126,11 @@ INLINE static void rt_convert_mass_fractions(const struct engine* engine,
                                              const struct xpart* xpart,
                                              float* ret) {
 
-  ret[0] = part->rt_data.tchem.mass_fraction_HI;
-  ret[1] = part->rt_data.tchem.mass_fraction_HII;
-  ret[2] = part->rt_data.tchem.mass_fraction_HeI;
-  ret[3] = part->rt_data.tchem.mass_fraction_HeII;
-  ret[4] = part->rt_data.tchem.mass_fraction_HeIII;
+  ret[0] = xpart->cooling_data.HI_frac;
+  ret[1] = xpart->cooling_data.HII_frac;
+  ret[2] = xpart->cooling_data.HeI_frac;
+  ret[3] = xpart->cooling_data.HeII_frac;
+  ret[4] = xpart->cooling_data.HeIII_frac;
 }
 
 /**
@@ -157,7 +143,7 @@ INLINE static void rt_convert_mass_fractions(const struct engine* engine,
  * @return Returns the number of fields to write.
  */
 INLINE static int rt_write_particles(const struct part* parts,
-                                     struct io_props* list) {
+		const struct xpart* xparts, struct io_props* list) {
 
   int num_elements = 3;
 
@@ -171,7 +157,7 @@ INLINE static int rt_write_particles(const struct part* parts,
       "Photon Fluxes (all groups; x, y, and z coordinates)");
   list[2] = io_make_output_field_convert_part(
       "IonMassFractions", FLOAT, 5, UNIT_CONV_NO_UNITS, 0, parts,
-      /*xparts=*/NULL, rt_convert_mass_fractions,
+      xparts, rt_convert_mass_fractions,
       "Mass fractions of all constituent species");
 
 #ifdef SWIFT_RT_DEBUG_CHECKS

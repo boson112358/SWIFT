@@ -213,19 +213,6 @@ INLINE void rt_do_thermochemistry(
 #endif
 
   /* Update mass fractions */
-  const gr_float one_over_rho = 1. / density;
-  p->rt_data.tchem.mass_fraction_HI =
-      data.HI_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HII =
-      data.HII_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HeI =
-      data.HeI_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HeII =
-      data.HeII_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HeIII =
-      data.HeIII_density[0] * one_over_rho;
-
-  //rt_check_unphysical_mass_fractions(p);
 
   /* Update radiation fields */
   /* First get absorption rates at the start and the end of the step */
