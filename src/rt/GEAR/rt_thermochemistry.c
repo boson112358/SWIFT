@@ -24,6 +24,7 @@
 #include "rt_unphysical.h"
 #include "rt_getters.h"
 
+
 /**
  * @file src/rt/GEAR/rt_thermochemistry.h
  * @brief Main header file for the GEAR M1 closure radiative transfer scheme
@@ -48,6 +49,7 @@ void rt_tchem_first_init_part(
     const struct cooling_function_data* cooling,
     const struct cosmology* restrict cosmo) {
 
+    /* initialize cooling from cooling module. */
     cooling_first_init_part(phys_const, us, hydro_props, cosmo, cooling, p, xp);
     
     gr_float zero = 1.e-20;
@@ -61,46 +63,18 @@ void rt_tchem_first_init_part(
     xp->cooling_data.e_frac = xp->cooling_data.HII_frac +
                             0.25 * xp->cooling_data.HeII_frac +
                             0.5 * xp->cooling_data.HeIII_frac;
-//  if (rt_props->set_equilibrium_initial_ionization_mass_fractions) {
-  //  float XHI, XHII, XHeI, XHeII, XHeIII;
-    //rt_ion_equil_get_mass_fractions(&XHI, &XHII, &XHeI, &XHeII, &XHeIII, p,
-      //                              rt_props, hydro_props, phys_const, us,
-        //                            cosmo);
-    //p->rt_data.tchem.mass_fraction_HI = XHI;
-   // p->rt_data.tchem.mass_fraction_HII = XHII;
-   // p->rt_data.tchem.mass_fraction_HeI = XHeI;
-   // p->rt_data.tchem.mass_fraction_HeII = XHeII;
-   // p->rt_data.tchem.mass_fraction_HeIII = XHeIII;
- // } else if (rt_props->set_initial_ionization_mass_fractions) {
-   // p->rt_data.tchem.mass_fraction_HI = rt_props->mass_fraction_HI_init;
-   // p->rt_data.tchem.mass_fraction_HII = rt_props->mass_fraction_HII_init;
-   // p->rt_data.tchem.mass_fraction_HeI = rt_props->mass_fraction_HeI_init;
-   // p->rt_data.tchem.mass_fraction_HeII = rt_props->mass_fraction_HeII_init;
-   // p->rt_data.tchem.mass_fraction_HeIII = rt_props->mass_fraction_HeIII_init;
-  //}
+    
+    //xp->cooling_data.H2I_frac = 0.1f;
+    //p->cooling_data.dust_mass = 1e4;
+    //p->cooling_data.dust_mass_fraction[3] = 1.f;
+    //p->cooling_data.dust_temperature = 10;
 
-  /* pretend you have nonzero density so the check doesn't reset the mass
-   * fractions */
-  //p->rho = 1.f;
-  /* Check that we didn't do something stupid */
-  //rt_check_unphysical_mass_fractions(p);
-  //p->rho = 0.f;
+    //p->rt_data.tchem.mass_fraction_HI = zero;
+    //p->rt_data.tchem.mass_fraction_HII = 0.76f;
+    //p->rt_data.tchem.mass_fraction_HeI = zero;
+    //p->rt_data.tchem.mass_fraction_HeII = zero;
+    //p->rt_data.tchem.mass_fraction_HeIII = 0.24f;
 
-  /* Check that the Hydrogen and Helium mass fractions correspond to those
-   * provided by the user in the parameter file. This mass fraction is also
-   * passed down to grackle internally, so it is error-prone if left
-   * unchecked. */
-  //const float mH =
-    //  p->rt_data.tchem.mass_fraction_HI + p->rt_data.tchem.mass_fraction_HII;
-  //if (fabsf(mH - rt_props->hydrogen_mass_fraction) > 1e-4)
-   // error("Got wrong Hydrogen mass fraction: Got =%.6f provided in yml =%.6f",
-     //     mH, rt_props->hydrogen_mass_fraction);
- // const float mHe = p->rt_data.tchem.mass_fraction_HeI +
-   //                 p->rt_data.tchem.mass_fraction_HeII +
-   //                 p->rt_data.tchem.mass_fraction_HeIII;
- // if (fabsf(mHe - rt_props->helium_mass_fraction) > 1e-4)
- //   error("Got wrong Helium mass fraction: Got =%.6f provided in yml =%.6f",
- //         mHe, rt_props->helium_mass_fraction);
 }
 
 /**
@@ -189,7 +163,6 @@ INLINE void rt_do_thermochemistry(
   //rt_get_grackle_particle_fields(&particle_grackle_data, density,
     //                             internal_energy, species_densities,
     //                             iact_rates);
-
   /* solve chemistry */
   /* Note: `grackle_rates` is a global variable defined by grackle itself.
    * Using a manually allocd and initialized variable here fails with MPI
@@ -289,7 +262,6 @@ INLINE void rt_do_thermochemistry(
                               p->rt_data.radiation[g].flux, E_old,
                               /*callloc=*/2);
   }
-
   /* Clean up after yourself. */
   //rt_clean_grackle_fields(&particle_grackle_data);
   cooling_grackle_free_data(&data);
