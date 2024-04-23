@@ -24,6 +24,9 @@
 #include "rt_unphysical.h"
 #include "rt_getters.h"
 
+/* define heating and cooling limits on thermal energy, per timestep */
+#define GRACKLE_HEATLIM 1000.0
+#define GRACKLE_COOLLIM 0.01
 
 /**
  * @file src/rt/GEAR/rt_thermochemistry.h
@@ -95,14 +98,50 @@ INLINE void rt_do_thermochemistry(
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
     const struct phys_const* restrict phys_const,
+    const struct entropy_floor_properties* floor_props,
     const struct cooling_function_data* restrict cooling,
-    const struct unit_system* restrict us, const double dt, int depth) {
+    const struct unit_system* restrict us, const double dt, int depth, const double time) {
   /* Note: Can't pass rt_props as const struct because of grackle
    * accessinging its properties there */
 
   /* Nothing to do here? */
   if (rt_props->skip_thermochemistry) return;
   if (dt == 0.) return;
+
+  /* No cooling if particle is decoupled */
+  if (p->feedback_data.decoupling_delay_time > 0.f
+        || p->feedback_data.cooling_shutoff_delay_time > 0.f) {
+    return;
+  }
+
+  /* Update the subgrid properties */
+  cooling_set_particle_subgrid_properties(phys_const, us,
+	  cosmo, hydro_props, floor_props, cooling, p, xp);
+
+  /* Compute the entropy floor */
+  const double T_floor = entropy_floor_temperature(p, cosmo, floor_props);
+  const double u_floor = cooling_convert_temp_to_u(T_floor, xp->cooling_data.e_frac, cooling, p);
+
+  /* If it's eligible for SF and metal-free, crudely self-enrich to very small level; needed to kick-start Grackle dust */
+  if (p->cooling_data.subgrid_temp > 0.f && chemistry_get_total_metal_mass_fraction_for_cooling(p) < cooling->self_enrichment_metallicity) {
+    /* Fraction of mass in stars going SNe */
+    //const float yield = 0.02;
+    /* Compute increase in metal mass fraction due to self-enrichment from own SFR */
+    //const double delta_metal_frac = p->sf_data.SFR * dt * yield / p->mass;
+    /* Set metal fraction to floor value when star-forming */
+    p->chemistry_data.metal_mass_fraction_total = cooling->self_enrichment_metallicity;
+    double solar_met_total=0.f;
+    /* SolarAbundances has He as element 0, while chemistry_element struct has H as element 0, hence an offset of 1 */
+    for (int i = 1; i < chemistry_element_count; i++) if (i > chemistry_element_He)
+	    solar_met_total += cooling->chemistry.SolarAbundances[i-1];
+    /* Distribute the self-enrichment metallicity among elements assuming solar abundance ratios*/
+    for (int i = 1; i < chemistry_element_count; i++) {
+      if (i > chemistry_element_He) {
+  	 p->chemistry_data.metal_mass_fraction[i] +=
+	    cooling->self_enrichment_metallicity * cooling->chemistry.SolarAbundances[i-1] / solar_met_total;
+      }
+    }
+  }
 
   /* This is where the fun begins */
   /* ---------------------------- */
@@ -153,11 +192,14 @@ INLINE void rt_do_thermochemistry(
   float radiation_energy_density[RT_NGROUPS];
   rt_part_get_radiation_energy_density(p, radiation_energy_density);
 
-  gr_float iact_rates[5];
+  gr_float *iact_rates;
+  iact_rates = (gr_float *)calloc(5, sizeof(gr_float));
   rt_get_interaction_rates_for_grackle(
       iact_rates, radiation_energy_density, species_densities,
       rt_props->average_photon_energy, rt_props->energy_weighted_cross_sections,
       rt_props->number_weighted_cross_sections, phys_const, us);
+
+  rt_get_grackle_data_rate(&data, iact_rates);
 
   /* Put all the data into a grackle field struct */
   //rt_get_grackle_particle_fields(&particle_grackle_data, density,
@@ -172,14 +214,14 @@ INLINE void rt_do_thermochemistry(
           &rt_props->grackle_units, &data, dt) == 0)
     error("Error in solve_chemistry.");
   
-  /* copy from grackle data to particle */
+  /* copy from grackle data to particle/update */
   cooling_copy_from_grackle(&data, p, xp, cooling, species_densities[12]);
 
   /* copy updated grackle data to particle */
   /* update particle internal energy. Grackle had access by reference
    * to internal_energy */
   internal_energy = data.internal_energy[0];
-  const float u_new = max(internal_energy, u_minimal);
+  float u_new = max(internal_energy, u_minimal);
 
 #if COOLING_GRACKLE_MODE >= 2
   double t_dust = 0.f;
@@ -202,10 +244,11 @@ INLINE void rt_do_thermochemistry(
     //rt_clean_grackle_fields(&particle_grackle_data);
     cooling_grackle_free_data(&data);
     free(species_densities);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, cooling, us,
-                          0.5 * dt, depth + 1);
-    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, cooling, us,
-                          0.5 * dt, depth + 1);
+    free(iact_rates);
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, floor_props, cooling, us,
+                          0.5 * dt, depth + 1, time);
+    rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, floor_props, cooling, us,
+                          0.5 * dt, depth + 1, time);
     return;
   }
 
@@ -213,19 +256,49 @@ INLINE void rt_do_thermochemistry(
 #ifdef GIZMO_MFV_SPH
   hydro_set_internal_energy(p, u_new);
 #else
-  /* Calculate the cooling rate */
-  float cool_du_dt = (u_new - u_old) / dt_therm;
+  /* Assign new thermal energy to particle */
+  float cool_du_dt = 0.;
 
-  if (fabsf(cool_du_dt) > fabsf(hydro_du_dt)){
-    hydro_set_physical_internal_energy(p, xp, cosmo, u_new);
-  
-    hydro_set_physical_internal_energy_dt(p, cosmo, 0.);
-  } else {
-    hydro_set_physical_internal_energy_dt(p, cosmo, hydro_du_dt);
+  if (p->cooling_data.subgrid_temp == 0.) {
+    /* Normal cooling; check that we are not going to go below any of the limits */
+    if (u_new > GRACKLE_HEATLIM * u_old) u_new = GRACKLE_HEATLIM * u_old;
+    if (u_new < GRACKLE_COOLLIM * u_old) u_new = GRACKLE_COOLLIM * u_old;
+    u_new = max(u_new, u_floor);
+    
+    /* Calculate the cooling rate */
+    cool_du_dt = (u_new - u_old) / dt_therm;
+
+    /* If cooling rate is larger than the hydro_du_dt, directly set the internal energy value. */
+    if (fabsf(cool_du_dt) > fabsf(hydro_du_dt)){
+	    hydro_set_physical_internal_energy(p, xp, cosmo, u_new);
+	    
+	    hydro_set_physical_internal_energy_dt(p, cosmo, 0.);
+    } else {
+	    /* Otherwise we use the hydro rate to update the particle internal energy. */
+	    hydro_set_physical_internal_energy_dt(p, cosmo, hydro_du_dt);
+    }
   }
-#endif
+  else {
+    /* Particle is in subgrid mode; result is stored in subgrid_temp */
+    p->cooling_data.subgrid_temp = cooling_convert_u_to_temp(u_new, xp->cooling_data.e_frac, cooling, p);
 
-  /* Update mass fractions */
+    /* Set internal energy time derivative to 0 for overall particle */
+    hydro_set_physical_internal_energy_dt(p, cosmo, 0.f);
+
+    /* Force the overall particle to lie on the equation of state */
+    hydro_set_physical_internal_energy(p, xp, cosmo, u_floor);
+  }
+
+  /* Store the radiated energy */
+  xp->cooling_data.radiated_energy -= hydro_get_mass(p) * cool_du_dt * dt_therm;
+
+  /* Record this cooling event */
+  xp->cooling_data.time_last_event = time;
+
+  /* set subgrid properties for use in SF routine */
+  cooling_set_particle_subgrid_properties(
+      phys_const, us, cosmo, hydro_props, floor_props, cooling, p, xp);
+#endif
 
   /* Update radiation fields */
   /* First get absorption rates at the start and the end of the step */
@@ -266,6 +339,7 @@ INLINE void rt_do_thermochemistry(
   //rt_clean_grackle_fields(&particle_grackle_data);
   cooling_grackle_free_data(&data);
   free(species_densities);
+  free(iact_rates);
 }
 
 /**
@@ -314,7 +388,8 @@ float rt_tchem_get_tchem_time(
   float radiation_energy_density[RT_NGROUPS];
   rt_part_get_radiation_energy_density(p, radiation_energy_density);
 
-  gr_float iact_rates[5];
+  gr_float *iact_rates;
+  iact_rates = (gr_float *)calloc(5, sizeof(gr_float));
   rt_get_interaction_rates_for_grackle(
       iact_rates, radiation_energy_density, species_densities,
       rt_props->average_photon_energy, rt_props->energy_weighted_cross_sections,
@@ -322,6 +397,8 @@ float rt_tchem_get_tchem_time(
 
   /* load particle information from particle to grackle data */
   cooling_copy_to_grackle(&data, us, cosmo, cooling, p, xp, 0., species_densities, my_chemistry);
+
+  rt_get_grackle_data_rate(&data, iact_rates);  
 
   //rt_get_grackle_particle_fields(&particle_grackle_data, density,
   //                               internal_energy, species_densities,
@@ -342,6 +419,7 @@ float rt_tchem_get_tchem_time(
 
   cooling_grackle_free_data(&data);
   free(species_densities);
+  free(iact_rates);
 
   return (float)tchem_time;
 }
