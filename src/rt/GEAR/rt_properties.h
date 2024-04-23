@@ -456,7 +456,7 @@ __attribute__((always_inline)) INLINE static void rt_props_init(
       params, "GEARRT:case_B_recombination", /*default=*/1);
   rt_init_grackle(&rtp->grackle_units, &rtp->grackle_chemistry_data,
                   &rtp->grackle_chemistry_rates, rtp->hydrogen_mass_fraction,
-                  rtp->grackle_verbose, rtp->case_B_recombination, us, cooling);
+                  rtp->grackle_verbose, rtp->case_B_recombination, us, cooling, phys_const);
 
   /* Pre-compute interaction rates/cross sections */
   /* -------------------------------------------- */
@@ -506,7 +506,7 @@ __attribute__((always_inline)) INLINE static void rt_struct_restore(
   rt_init_grackle(&props->grackle_units, &props->grackle_chemistry_data,
                   &props->grackle_chemistry_rates,
                   props->hydrogen_mass_fraction, props->grackle_verbose,
-                  props->case_B_recombination, us, cooling);
+                  props->case_B_recombination, us, cooling, phys_const);
 
   props->energy_weighted_cross_sections = NULL;
   props->number_weighted_cross_sections = NULL;

@@ -53,7 +53,7 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
     chemistry_data_storage *grackle_chemistry_rates,
     float hydrogen_mass_fraction, const int grackle_verb,
     const int case_B_recombination, const struct unit_system *us,
-    struct cooling_function_data* cooling) {
+    struct cooling_function_data* cooling, const struct phys_const* phys_const) {
 
   grackle_verbose = grackle_verb;
 
@@ -70,6 +70,22 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
   grackle_units->time_units = units_cgs_conversion_factor(us, UNIT_CONV_TIME);
   /* Set velocity units */
   set_velocity_units(grackle_units);
+
+  cooling->temp_to_u_factor = phys_const->const_boltzmann_k / (hydro_gamma_minus_one * phys_const->const_proton_mass *
+      units_cgs_conversion_factor(us, UNIT_CONV_TEMPERATURE));
+  cooling->dudt_units = units_cgs_conversion_factor(us, UNIT_CONV_ENERGY_PER_UNIT_MASS) / units_cgs_conversion_factor(us, UNIT_CONV_TIME);
+  
+  /* converts galaxy sSFR into G0 by scaling to MW values */
+  const double time_to_yr = units_cgs_conversion_factor(us, UNIT_CONV_TIME) /
+          (365.25f * 24.f * 60.f * 60.f);
+  const double mass_to_solar_mass = 1.f / phys_const->const_solar_mass;
+  const double length_to_pc =
+      units_cgs_conversion_factor(us, UNIT_CONV_LENGTH) / 3.08567758e18f;
+  /* G0 for MW=1.6 (Parravano etal 2003).  */
+  /* Calibrated to sSFR density in solar neighborhood =0.002 Mo/Gyr/pc^3 (J. Isern 2019) */
+  cooling->G0_factor1 = 1.6f * mass_to_solar_mass / (0.002f * time_to_yr * 1.e-9) / (length_to_pc * length_to_pc * length_to_pc);
+  /* Calibrated to sSFR for MW=2.71e-11 (Licquia etal 2015) */
+  cooling->G0_factor2 = 1.6f / (2.71e-11f * time_to_yr);
 
   /* Chemistry Parameters */
   /* -------------------- */

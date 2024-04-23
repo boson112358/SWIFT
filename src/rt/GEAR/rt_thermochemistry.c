@@ -181,6 +181,19 @@ INLINE void rt_do_thermochemistry(
   internal_energy = data.internal_energy[0];
   const float u_new = max(internal_energy, u_minimal);
 
+#if COOLING_GRACKLE_MODE >= 2
+  double t_dust = 0.f;
+  /* Compute dust temperature */
+  t_dust = p->cooling_data.dust_temperature;
+  if (local_calculate_dust_temperature(&rt_props->grackle_chemistry_data, &rt_props->grackle_chemistry_rates, 
+			  &rt_props->grackle_units, &data, &t_dust) == 0) {
+	  error("Error in Grackle calculate dust temperature.");
+  }
+  p->cooling_data.dust_temperature = t_dust;
+  /* Reset accumulated local variables to zero */
+  p->feedback_data.SNe_ThisTimeStep = 0.f;
+#endif
+
   /* Re-do thermochemistry? */
   if ((rt_props->max_tchem_recursion > depth) &&
       (fabsf(u_old - u_new) > 0.1 * u_old)) {
