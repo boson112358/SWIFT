@@ -69,8 +69,9 @@ void rt_do_thermochemistry(
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
     const struct phys_const* restrict phys_const,
+    const struct entropy_floor_properties* floor_props,
     const struct cooling_function_data* restrict cooling,
-    const struct unit_system* restrict us, const double dt, int depth);
+    const struct unit_system* restrict us, const double dt, int depth, const double time);
 
 /**
  * @brief Computes an upper boundary for the thermochemistry/cooling

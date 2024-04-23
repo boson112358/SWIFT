@@ -1197,6 +1197,8 @@ void runner_do_rt_tchem(struct runner *r, struct cell *c, int timer) {
   const struct phys_const *phys_const = e->physical_constants;
   const struct unit_system *us = e->internal_units;
   const struct cooling_function_data *cooling = e->cooling_func;
+  const struct entropy_floor_properties *entropy_floor_props = e->entropy_floor;
+  const double time = e->time;
 
   /* Anything to do here? */
   if (count == 0) return;
@@ -1250,7 +1252,7 @@ void runner_do_rt_tchem(struct runner *r, struct cell *c, int timer) {
       rt_finalise_transport(p, dt, cosmo);
 
       /* And finally do thermochemistry */
-      rt_tchem(p, xp, rt_props, cosmo, hydro_props, phys_const, cooling, us, dt);
+      rt_tchem(p, xp, rt_props, cosmo, hydro_props, phys_const, entropy_floor_props, cooling, us, dt, time);
     }
   }
 

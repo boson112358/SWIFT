@@ -524,8 +524,9 @@ __attribute__((always_inline)) INLINE static void rt_tchem(
     struct rt_props* rt_props, const struct cosmology* restrict cosmo,
     const struct hydro_props* hydro_props,
     const struct phys_const* restrict phys_const,
+    const struct entropy_floor_properties* floor_props,
     const struct cooling_function_data* restrict cooling,
-    const struct unit_system* restrict us, const double dt) {
+    const struct unit_system* restrict us, const double dt, const double time) {
 
 #ifdef SWIFT_RT_DEBUG_CHECKS
   rt_debug_sequence_check(p, 4, __func__);
@@ -534,8 +535,8 @@ __attribute__((always_inline)) INLINE static void rt_tchem(
 
   /* Note: Can't pass rt_props as const struct because of grackle
    * accessinging its properties there */
-  rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, cooling, us, dt,
-                        0);
+  rt_do_thermochemistry(p, xp, rt_props, cosmo, hydro_props, phys_const, floor_props, cooling, us, dt,
+                        0, time);
 }
 
 /**
