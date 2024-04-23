@@ -103,7 +103,7 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
   /* NOTE: without cooling on, it also won't heat... */
   grackle_chemistry_data->with_radiative_cooling = 1;
   /* 6 species atomic H and He */
-  grackle_chemistry_data->primordial_chemistry = 2;
+  grackle_chemistry_data->primordial_chemistry = 1;
   /* No dust processes */
   grackle_chemistry_data->dust_chemistry = 0;
   /* No H2 formation on dust */
@@ -119,7 +119,7 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
   /* adiabatic index */
   grackle_chemistry_data->Gamma = hydro_gamma;
   /* we'll provide grackle with ionization and heating rates from RT */
-  grackle_chemistry_data->use_radiative_transfer = 0;
+  grackle_chemistry_data->use_radiative_transfer = 1;
 
   /* fraction by mass of Hydrogen in the metal-free portion of the gas */
   grackle_chemistry_data->HydrogenFractionByMass = hydrogen_mass_fraction;
@@ -157,6 +157,8 @@ __attribute__((always_inline)) INLINE static void rt_init_grackle(
   } else {
     grackle_chemistry_data->use_dust_evol = 0;
   }
+
+  cooling->use_grackle_h2_form = cooling->use_grackle_dust_evol && COOLING_GRACKLE_MODE >= 2;
   
   if (local_initialize_chemistry_data(grackle_chemistry_data,
                                       grackle_chemistry_rates,
@@ -297,6 +299,30 @@ rt_get_grackle_particle_fields(grackle_field_data *grackle_fields,
     grackle_fields->RT_HeII_ionization_rate[i] = iact_rates[3];
     grackle_fields->RT_H2_dissociation_rate[i] = iact_rates[4];
   }
+}
+
+/**
+ * @brief fill out a grackle field struct with the relevant (gas) data from a
+ *particle
+ *
+ * @param grackle_fields (return) grackle field to copy into
+ * @param density array of particle density
+ * @param internal_energy array of particle internal_energy
+ * @param species_densities array of species densities of particle (HI, HII,
+ *HeI, HeII, HeIII, e-)
+ * @param iact_rates array of interaction rates (heating, 3 ioniziation, H2
+ *dissociation)
+ *
+ **/
+__attribute__((always_inline)) INLINE static void
+rt_get_grackle_data_rate(grackle_field_data* data, gr_float iact_rates[5]) {
+
+  data->RT_heating_rate = &iact_rates[0];
+  data->RT_HI_ionization_rate = &iact_rates[1];
+  data->RT_HeI_ionization_rate = &iact_rates[2];
+  data->RT_HeII_ionization_rate = &iact_rates[3];
+  data->RT_H2_dissociation_rate = &iact_rates[4];
+
 }
 
 /**
