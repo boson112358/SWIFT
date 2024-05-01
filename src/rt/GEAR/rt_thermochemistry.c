@@ -385,6 +385,9 @@ float rt_tchem_get_tchem_time(
   my_chemistry = (chemistry_data *)malloc(sizeof(chemistry_data));
   bcopy(&cooling->chemistry, my_chemistry, sizeof(cooling->chemistry));
 
+  /* load particle information from particle to grackle data */
+  cooling_copy_to_grackle(&data, us, cosmo, cooling, p, xp, 0., species_densities, my_chemistry);
+
   float radiation_energy_density[RT_NGROUPS];
   rt_part_get_radiation_energy_density(p, radiation_energy_density);
 
@@ -394,9 +397,6 @@ float rt_tchem_get_tchem_time(
       iact_rates, radiation_energy_density, species_densities,
       rt_props->average_photon_energy, rt_props->energy_weighted_cross_sections,
       rt_props->number_weighted_cross_sections, phys_const, us);
-
-  /* load particle information from particle to grackle data */
-  cooling_copy_to_grackle(&data, us, cosmo, cooling, p, xp, 0., species_densities, my_chemistry);
 
   rt_get_grackle_data_rate(&data, iact_rates);  
 
