@@ -66,7 +66,7 @@ include_HEADERS += black_holes.h black_holes_iact.h black_holes_io.h black_holes
 include_HEADERS += feedback.h feedback_new_stars.h feedback_struct.h feedback_properties.h feedback_debug.h feedback_iact.h
 include_HEADERS += space_unique_id.h line_of_sight.h io_compression.h
 include_HEADERS += rays.h rays_struct.h
-include_HEADERS += sink.h sink_struct.h sink_io.h sink_properties.h sink_debug.h
+include_HEADERS += sink.h sink_iact.h sink_struct.h sink_io.h sink_properties.h sink_debug.h
 include_HEADERS += particle_splitting.h particle_splitting_struct.h
 include_HEADERS += chemistry_csds.h star_formation_csds.h
 include_HEADERS += mesh_gravity.h mesh_gravity_mpi.h mesh_gravity_patch.h mesh_gravity_sort.h row_major_id.h
@@ -75,6 +75,7 @@ include_HEADERS += lightcone/lightcone.h lightcone/lightcone_particle_io.h light
 include_HEADERS += lightcone/lightcone_crossing.h lightcone/lightcone_array.h lightcone/lightcone_map.h
 include_HEADERS += lightcone/lightcone_map_types.h lightcone/projected_kernel.h lightcone/lightcone_shell.h
 include_HEADERS += lightcone/healpix_util.h lightcone/pixel_index.h
+include_HEADERS += adaptive_softening.h adaptive_softening_iact.h adaptive_softening_struct.h
 include_HEADERS += forcing.h
 include_HEADERS += power_spectrum.h
 include_HEADERS += ghost_stats.h
@@ -124,11 +125,17 @@ if HAVEGRACKLECOOLING
 GRACKLE_COOLING_SOURCES += cooling/grackle/cooling.c
 endif
 
+# source files for EAGLE floor
+EAGLE_FLOOR_SOURCES =
+if HAVEEAGLEFLOOR
+EAGLE_FLOOR_SOURCES += entropy_floor/EAGLE/entropy_floor.c
+endif
+
 # source files for GEAR feedback
 GEAR_FEEDBACK_SOURCES =
 if HAVEGEARFEEDBACK
-GEAR_FEEDBACK_SOURCES += feedback/GEAR/stellar_evolution.c feedback/GEAR/feedback.c \
-	feedback/GEAR/initial_mass_function.c feedback/GEAR/supernovae_ia.c feedback/GEAR/supernovae_ii.c
+GEAR_FEEDBACK_SOURCES += feedback/GEAR/stellar_evolution.c feedback/GEAR/feedback.c
+GEAR_FEEDBACK_SOURCES += feedback/GEAR/initial_mass_function.c feedback/GEAR/supernovae_ia.c feedback/GEAR/supernovae_ii.c
 endif
 
 # source files for AGORA feedback
@@ -182,7 +189,7 @@ AM_SOURCES += fof.c fof_catalogue_io.c
 AM_SOURCES += hashmap.c
 AM_SOURCES += mesh_gravity.c mesh_gravity_mpi.c mesh_gravity_patch.c mesh_gravity_sort.c
 AM_SOURCES += runner_neutrino.c
-AM_SOURCES += neutrino/Default/fermi_dirac.c neutrino/Default/neutrino.c neutrino/Default/neutrino_response.c 
+AM_SOURCES += neutrino/Default/fermi_dirac.c neutrino/Default/neutrino.c neutrino/Default/neutrino_response.c
 AM_SOURCES += rt_parameters.c hdf5_object_to_blob.c ic_info.c exchange_structs.c particle_buffer.c
 AM_SOURCES += lightcone/lightcone.c lightcone/lightcone_particle_io.c lightcone/lightcone_replications.c
 AM_SOURCES += lightcone/healpix_util.c lightcone/lightcone_array.c lightcone/lightcone_map.c
@@ -193,7 +200,8 @@ AM_SOURCES += ghost_stats.c
 AM_SOURCES += $(EAGLE_EXTRA_IO_SOURCES)
 AM_SOURCES += $(QLA_COOLING_SOURCES) $(QLA_EAGLE_COOLING_SOURCES) 
 AM_SOURCES += $(EAGLE_COOLING_SOURCES) $(EAGLE_FEEDBACK_SOURCES) 
-AM_SOURCES += $(GRACKLE_COOLING_SOURCES) $(GEAR_FEEDBACK_SOURCES) 
+AM_SOURCES += $(GRACKLE_COOLING_SOURCES) $(GEAR_FEEDBACK_SOURCES)
+AM_SOURCES += $(EAGLE_FLOOR_SOURCES)
 AM_SOURCES += $(AGORA_FEEDBACK_SOURCES)
 AM_SOURCES += $(PS2020_COOLING_SOURCES)
 AM_SOURCES += $(SPHM1RT_RT_SOURCES)
@@ -369,7 +377,8 @@ nobase_noinst_HEADERS += stars/EAGLE/stars.h stars/EAGLE/stars_iact.h stars/EAGL
 nobase_noinst_HEADERS += stars/EAGLE/stars_debug.h stars/EAGLE/stars_part.h 
 nobase_noinst_HEADERS += stars/GEAR/stars.h stars/GEAR/stars_iact.h stars/GEAR/stars_io.h 
 nobase_noinst_HEADERS += stars/GEAR/stars_debug.h stars/GEAR/stars_csds.h stars/GEAR/stars_part.h
-nobase_noinst_HEADERS += forcing/none/forcing.h forcing/roberts_flow/forcing.h forcing/roberts_flow_acceleration/forcing.h 
+nobase_noinst_HEADERS += forcing/none/forcing.h forcing/roberts_flow/forcing.h forcing/roberts_flow_acceleration/forcing.h
+nobase_noinst_HEADERS += forcing/ABC_flow/forcing.h
 nobase_noinst_HEADERS += potential/none/potential.h potential/point_mass/potential.h 
 nobase_noinst_HEADERS += potential/isothermal/potential.h potential/disc_patch/potential.h 
 nobase_noinst_HEADERS += potential/sine_wave/potential.h potential/constant/potential.h 
