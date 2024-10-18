@@ -73,6 +73,21 @@ struct chemistry_global_data {
   /*! Use Firehose wind model (1) or standard decoupled winds (0) */
   int use_firehose_wind_model;
 
+  /*! Firehose wind model maximum density */
+  int firehose_ambient_rho_max;
+
+  /*! Firehose wind model minimum thermal energy */
+  int firehose_u_floor;
+
+  /*! Firehose wind model Mach number threshold for recoupling */
+  int firehose_recoupling_mach;
+
+  /*! Firehose wind model thermal energy ratio threshold for recoupling */
+  int firehose_recoupling_u_factor;
+
+  /*! Firehose wind model mixing mass threshold for recoupling */
+  int firehose_recoupling_fmix;
+
   /*! Dust sputtering constant */
   float dust_sputtering_const; 
 
@@ -151,9 +166,6 @@ struct chemistry_part_data {
   /*! Firehose ambient gas density */
   float rho_ambient;
 
-  /*! Firehose ambient gas normalizing kernel weight */
-  float weight_ambient;
-
   /*! Firehose radius of outflowing stream */
   float radius_stream;
 
@@ -161,7 +173,10 @@ struct chemistry_part_data {
   float exchanged_mass;
 
   /*! Firehose time from decoupling */
-  float destruction_time;
+  //float destruction_time;
+
+  /*! Volume factor (see chemistry.h) */
+  float volume_factor;
 };
 
 #define chemistry_spart_data chemistry_part_data
