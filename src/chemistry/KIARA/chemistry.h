@@ -770,6 +770,10 @@ __attribute__((always_inline)) INLINE static void chemistry_end_force(
 
   if (dt == 0.) return;
 
+  /* Check if we are hypersonic*/
+  /* Reset dZ_dt and return? */
+  bool reset_time_derivatives = false;
+
   struct chemistry_part_data* ch = &p->chemistry_data;
 
   const float h_inv = 1.f / p->h;
@@ -1105,7 +1109,7 @@ __attribute__((always_inline)) INLINE static float chemistry_timestep(
     }
   }
 
-  return dt_chem;
+  return max(cd->time_step_min, dt_chem);
 }
 
 /**

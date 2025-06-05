@@ -600,10 +600,10 @@ feedback_do_chemical_enrichment_of_gas_around_star(
   hydro_set_physical_internal_energy(pj, xpj, cosmo, new_u);
   hydro_set_drifted_physical_internal_energy(pj, cosmo, /*pfloor=*/NULL,
                                              new_u);
-
+  
   /* Recompute Z since we do not track all of the metals from Chem5 */
   pj->chemistry_data.metal_mass_fraction_total = 0.f;
-
+  
   /* Update mass fraction of each tracked element  */
   for (int elem = 0; elem < chemistry_element_count; elem++) {
     const double current_metal_mass =
