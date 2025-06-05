@@ -25,6 +25,10 @@
 #include "timestep_sync_part.h"
 #include "tools.h"
 #include "tracers.h"
+#include <assert.h>
+
+#define KICK_RADIUS_OVER_H 0.5f
+#define MAX_FRAC_OF_KERNEL_TO_LAUNCH 0.5f
 
 /**
  * @brief Compute the mean DM velocity around a star. (non-symmetric).
@@ -49,6 +53,25 @@ runner_iact_nonsym_feedback_dm_vel_disp(struct spart *si,
                                         const float dm_mean_velocity[3]) {}
 
 /**
+ * @brief Compute customized kernel weight for feedback
+ *
+ * @param pj gas particle.
+ * @param wi SPH kernel weight at location of pj
+ */
+__attribute__((always_inline)) INLINE static float
+feedback_kernel_weight(const struct part *pj, const float wi, const float ui)
+{
+  /* If it's beyond the kick radius, then the weighting is zero */
+  if (ui >= KICK_RADIUS_OVER_H) return 0.f;
+
+  /* Weight towards higher SFR particles. As SFR->0, SFR_wi->wi and
+  * then radial weighting returns to normal. */
+  float weight = (pj->sf_data.SFR > 0.f) ? wi + pj->sf_data.SFR : wi;
+  weight *= hydro_get_mass(pj);
+  return weight;
+}
+
+/**
  * @brief Density interaction between two particles (non-symmetric).
  *
  * @param r2 Comoving square distance between the two particles.
@@ -71,8 +94,8 @@ runner_iact_nonsym_feedback_density(const float r2, const float dx[3],
                                     const struct feedback_props *fb_props,
                                     const integertime_t ti_current) {
 
-  /* Ignore wind in density computation */
-  /*if (pj->feedback_data.decoupling_delay_time > 0.f) return;*/
+  /* Do not count winds in the density */
+  if (pj->decoupled) return;
 
   const float rho = hydro_get_comoving_density(pj);
   if (rho <= 0.f) return;
@@ -86,30 +109,47 @@ runner_iact_nonsym_feedback_density(const float r2, const float dx[3],
   /* Compute the kernel function */
   const float hi_inv = 1.0f / hi;
   const float ui = r * hi_inv;
+
   float wi;
   kernel_eval(ui, &wi);
-
-  /* We found a neighbour! */
-  si->feedback_data.ngb_N++;
 
   /* Add mass of pj to neighbour mass of si  */
   si->feedback_data.ngb_mass += mj;
 
-  /* Update counter of total (integer) neighbours */
-  si->feedback_data.num_ngbs++;
+  /* sum(mj * wj) */
+  si->feedback_data.kernel_wt_sum += mj * wi;
 
-  /* Contribution to the star's surrounding gas density */
-  si->feedback_data.ngb_rho += mj * wi;
+  /* If pj is being kicked in this step, don't kick again */
+#ifndef BLACK_HOLES_NONE
+  if (pj->black_holes_data.swallow_id > -1) return;
+#endif
+  if (pj->feedback_data.kick_id > -1) return;
 
-  const float Zj = chemistry_get_total_metal_mass_fraction_for_feedback(pj);
+  /* Sum up the weights for normalizing the kernel later */
+  const float wt = feedback_kernel_weight(pj, wi, ui);
+  si->feedback_data.wind_wt_sum += wt;
+  if (wt > 0.f) si->feedback_data.wind_ngb_mass += mj;
 
-  /* Contribution to the star's surrounding metallicity (metal mass fraction */
-  si->feedback_data.ngb_Z += mj * Zj * wi;
+    /* Set kick direction as v x a */
+    const float dir[3] = {
+      pj->gpart->a_grav[1] * pj->gpart->v_full[2] -
+          pj->gpart->a_grav[2] * pj->gpart->v_full[1],
+      pj->gpart->a_grav[2] * pj->gpart->v_full[0] -
+          pj->gpart->a_grav[0] * pj->gpart->v_full[2],
+      pj->gpart->a_grav[0] * pj->gpart->v_full[1] -
+          pj->gpart->a_grav[1] * pj->gpart->v_full[0]
+    };
+    const float norm = 
+        sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
 
-  /* Add contribution of pj to normalisation of density weighted fraction
-   * which determines how much mass to distribute to neighbouring
-   * gas particles */
-  si->feedback_data.enrichment_weight_inv += wi / rho;
+    /* No normalization, no wind (should basically never happen) */
+    if (norm <= 0.f) {
+      warning("Normalization of wind direction will be zero!"
+              "id=%lld x=(%g, %g, %g); v=(%g, %g, %g); a=(%g, %g, %g)",
+              pj->id, dir[0], dir[1], dir[2], pj->gpart->v_full[0], pj->gpart->v_full[1], pj->gpart->v_full[2], pj->gpart->a_grav[0], pj->gpart->a_grav[1], pj->gpart->a_grav[2]);
+      assert(norm > 0.f);
+      return;
+    }
 
 }
 
@@ -119,7 +159,85 @@ runner_iact_nonsym_feedback_prep1(const float r2, const float dx[3],
                                   const struct spart *si, struct part *pj,
                                   const struct xpart *xpj,
                                   const struct cosmology *cosmo,
-                                  const integertime_t ti_current) {}
+                                  const integertime_t ti_current) {
+
+  /* No need to even check anything else if there is no mass to launch */
+  if (si->feedback_data.mass_to_launch <= 0.f) return;
+
+  /* No mass surrounding the star, no kick */
+  if (si->feedback_data.wind_wt_sum <= 0.f) return;
+
+#ifndef BLACK_HOLES_NONE
+  /* If pj is being swallowed by a black hole, don't kick again */
+  if (pj->black_holes_data.swallow_id > -1) return;
+#endif
+
+  /* If pj is being kicked by a star particle, don't kick again */
+  if (pj->feedback_data.kick_id > -1) return;
+
+  /* If pj is already a wind particle, don't kick again */
+  if (pj->decoupled) return; 
+
+  /* Get the gas mass. */
+  const float mj = hydro_get_mass(pj);
+
+  /* Get r. */
+  const float r = sqrtf(r2);
+
+  /* No kicks far away from the star */
+  if (r >= KICK_RADIUS_OVER_H * hi) return;
+
+  /* Compute the kernel function */
+  const float hi_inv = 1.0f / hi;
+  const float ui = r * hi_inv;
+
+  float wi;
+  kernel_eval(ui, &wi);
+
+  /* Bias towards the center of the kernel and to high SFR */
+  const float wt = feedback_kernel_weight(pj, wi, ui);
+
+  /* No kick if weight is zero */
+  if (wt <= 0.f) return;
+
+  /* Number of particles to kick out of the kernel */
+  float N_to_launch = si->feedback_data.mass_to_launch / mj;
+
+  /* Make sure that stars do not kick too much mass out of the kernel */
+  /* The rest of the mass will be kicked out later */
+  if (N_to_launch > MAX_FRAC_OF_KERNEL_TO_LAUNCH * si->feedback_data.wind_ngb_mass / mj) {
+    N_to_launch =  MAX_FRAC_OF_KERNEL_TO_LAUNCH * si->feedback_data.wind_ngb_mass / mj;
+  }
+
+  /* Apply redshift correction */
+  N_to_launch *= si->feedback_data.eta_suppression_factor;
+
+  /* Probability to swallow this particle */
+  const float prob = N_to_launch * wt / si->feedback_data.wind_wt_sum;
+
+#ifdef KIARA_DEBUG_CHECKS
+  message("STAR_PROB: sid=%lld, gid=%lld, prob=%g, eta=%g, mlaunch=%g, "
+          "m*=%g, N_to_launch=%g, mgas=%g, wt_sum=%g",
+          si->id,
+          pj->id,
+          prob,
+          si->feedback_data.mass_to_launch / si->mass_init,
+          si->feedback_data.mass_to_launch,
+          si->mass_init,
+          N_to_launch,
+          mj,
+          si->feedback_data.wind_wt_sum);
+#endif
+
+  /* Draw a random number (Note mixing both IDs) */
+  const float rand = random_unit_interval(si->id + pj->id, ti_current,
+                                          random_number_stellar_feedback_1);
+
+  /* We kick! */
+  if (rand < prob) {
+    pj->feedback_data.kick_id = si->id;
+  }
+}
 
 /**
  * @brief Compile gas particles to be kicked by stellar feedback in this step,
@@ -143,45 +261,29 @@ runner_iact_nonsym_feedback_prep2(const float r2, const float dx[3],
                                   const struct cosmology *cosmo,
                                   const integertime_t ti_current) {
 
-  /* If pj is already a wind particle, don't kick again */
-  if (pj->feedback_data.decoupling_delay_time > 0.f) return;
+  /* Remove mass from the mass_to_launch reservoir */
+  if (pj->feedback_data.kick_id == si->id) {
+    si->feedback_data.mass_to_launch -= hydro_get_mass(pj);
+    si->feedback_data.total_mass_kicked += hydro_get_mass(pj);
 
-  /* If more nearby particles already fill the kick list, then pj is not needed */
-  if (r2 >= si->feedback_data.r2_gas_to_be_kicked[FEEDBACK_N_KICK_MAX-1]) return;
+    /* Reservoir is comoving */
+    const float v2 = 
+        si->feedback_data.wind_velocity * si->feedback_data.wind_velocity;
+    const double energy_phys = 0.5 * hydro_get_mass(pj) * v2 * cosmo->a2_inv;
 
-  /* Check if there is enough mass to launch */
-  if (si->feedback_data.feedback_mass_to_launch < pj->mass) return;
+    /* Remove energy used to kick particle from the SNII energy reservoir */
+    si->feedback_data.physical_energy_reservoir -= energy_phys;
 
-  /* Check if there is enough energy to launch */
-  const float energy = 0.5 * pj->mass * si->feedback_data.feedback_wind_velocity 
-	  * si->feedback_data.feedback_wind_velocity;
-  if (si->feedback_data.feedback_energy_reservoir < energy) return;
+    /* Keep track of how many particles launched */
+    si->feedback_data.N_launched += 1;
 
-  /* Find location within kick list to insert this gas particle */
-  int i;
-  for (i = FEEDBACK_N_KICK_MAX; i > 0; i--) {
-    if (r2 > si->feedback_data.r2_gas_to_be_kicked[i-1]) break;
-    if (i < FEEDBACK_N_KICK_MAX) {
-      si->feedback_data.id_gas_to_be_kicked[i] = 
-          si->feedback_data.id_gas_to_be_kicked[i-1];
-      si->feedback_data.r2_gas_to_be_kicked[i] = 
-          si->feedback_data.r2_gas_to_be_kicked[i-1];
-    }
   }
 
-  /* Insert pj into kick list */
-  si->feedback_data.id_gas_to_be_kicked[i] = pj->id;
-  si->feedback_data.r2_gas_to_be_kicked[i] = r2;
-
-  /* Remove mass and energy needed to launch this particle */
-  si->feedback_data.feedback_mass_to_launch -= pj->mass;
-  si->feedback_data.feedback_energy_reservoir -= energy;
-  //message("KICKLIST: %lld %g %g %g %g", si->id, si->feedback_data.r2_gas_to_be_kicked[0], si->feedback_data.r2_gas_to_be_kicked[1], si->feedback_data.r2_gas_to_be_kicked[2], si->feedback_data.r2_gas_to_be_kicked[3]);
 }
 
 /**
- * @brief Kick and sometimes heat gas particle near a star, if star has enough mass
- * and energy for an ejection event.
+ * @brief Kick and sometimes heat gas particle near a star, 
+ * if star has enough mass and energy for an ejection event.
  *
  * @param si First (star) particle (not updated).
  * @param pj Second (gas) particle.
@@ -198,154 +300,192 @@ feedback_kick_gas_around_star(
     const struct feedback_props *fb_props, 
     const integertime_t ti_current) {
 
-  /* DO KINETIC FEEDBACK */
-  /* Check if particle pj has been selected for a kick, and set alternating kick direction */
-  int i;
-  float kick_dir = 1.f;
-  if (si->feedback_data.id_gas_to_be_kicked[0] % 2 == 1) kick_dir = -1.f;
-  for (i = 0; i < FEEDBACK_N_KICK_MAX; i++) {
-    if (pj->id == si->feedback_data.id_gas_to_be_kicked[i]) break;
-    kick_dir *= -1.f;
-  }
-  /* This particle was not in the kick list, so nothing to do */
-  if (i == FEEDBACK_N_KICK_MAX) return;
-
-  /* Compute velocity and KE of wind event.
-  * Note that pj->v_full = a^2 * dx/dt, with x the comoving
-  * coordinate. Therefore, a physical kick, dv, gets translated into a
-  * code velocity kick, a * dv */
-
-  const double wind_velocity = 
-      kick_dir * si->feedback_data.feedback_wind_velocity;
-
-  //message("FEEDBACK %lld %lld E_sn=%g Ew=%g %g   M_ej=%g Mp=%g %g",si->id, pj->id, si->feedback_data.feedback_energy_reservoir, wind_energy, si->feedback_data.feedback_energy_reservoir/wind_energy, si->feedback_data.feedback_mass_to_launch, pj->mass, si->feedback_data.feedback_mass_to_launch/pj->mass);
-
-  /* Set kick direction as v x a */
-  const double dir[3] = {
-    pj->gpart->a_grav[1] * pj->gpart->v_full[2] -
-        pj->gpart->a_grav[2] * pj->gpart->v_full[1],
-    pj->gpart->a_grav[2] * pj->gpart->v_full[0] -
-        pj->gpart->a_grav[0] * pj->gpart->v_full[2],
-    pj->gpart->a_grav[0] * pj->gpart->v_full[1] -
-        pj->gpart->a_grav[1] * pj->gpart->v_full[0]
-  };
-  const double norm = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
-
-  /* No normalization, no wind (should basically never happen) */
-  if (norm <= 0.) {
-    warning("Normalization of wind direction is zero!\n(x, y, z) = (%g, %g, %g)",
-            dir[0], dir[1], dir[2]);
-    return;
-  }
-
-  const double prefactor = wind_velocity / norm;
-
-  /* Do the kicks by updating the particle velocity. */
-  pj->v_full[0] += dir[0] * prefactor;
-  pj->v_full[1] += dir[1] * prefactor;
-  pj->v_full[2] += dir[2] * prefactor;
-
-  /* DO WIND HEATING */
-  double u_new = fb_props->cold_wind_internal_energy;
-  if (fb_props->cold_wind_internal_energy < fb_props->hot_wind_internal_energy) {
-    double galaxy_stellar_mass =
-          pj->gpart->fof_data.group_stellar_mass;
-    if (galaxy_stellar_mass < fb_props->minimum_galaxy_stellar_mass) {
-      galaxy_stellar_mass = fb_props->minimum_galaxy_stellar_mass;
-    }
-    const double galaxy_stellar_mass_Msun = galaxy_stellar_mass * 
-	  fb_props->mass_to_solar_mass;
-
-    /* Based on Pandya et al 2022 FIRE results */
-    float pandya_slope = 0.f;
-    if (galaxy_stellar_mass_Msun > 3.16e10) {
-      pandya_slope = -2.1f;
-    } else {
-      pandya_slope = -0.1f;
+  if (pj->feedback_data.kick_id == si->id) {
+    const float rand_for_kick_dir = 
+        random_unit_interval(pj->id, ti_current, 
+                             random_number_stellar_feedback);
+    float kick_dir = 1.f;
+    if (rand_for_kick_dir < 0.5f) {
+      kick_dir = -1.f;
     }
 
-    /* 0.2511886 = pow(10., -0.6) */
-    const double f_warm = 
-        0.2511886 * pow(galaxy_stellar_mass_Msun / 3.16e10, pandya_slope);
-    /* additional 10% removed for cold phase */
-    const double hot_wind_fraction = max(0., 0.9 - f_warm);
-    const double rand_for_hot = 
-        random_unit_interval(pj->id, ti_current, random_number_stellar_feedback_3);
-    const double rand_for_spread = 
-        random_unit_interval(pj->id, ti_current, random_number_stellar_feedback);
+    /* Compute velocity and KE of wind event.
+    * Note that pj->v_full = a^2 * dx/dt, with x the comoving
+    * coordinate. Therefore, a physical kick, dv, gets translated into a
+    * code velocity kick, a * dv.
+    */
+    const float wind_velocity = 
+        kick_dir * si->feedback_data.wind_velocity;
+    const float wind_velocity_phys = 
+        fabs(wind_velocity * cosmo->a_inv);
 
-    /* If selected, heat the particle */
-    const double u_wind = 0.5 * wind_velocity * wind_velocity;
-    if (rand_for_hot < hot_wind_fraction && 
-            fb_props->hot_wind_internal_energy > u_wind) {
-        u_new = (fb_props->hot_wind_internal_energy - u_wind) * 
-                    (0.5 + rand_for_spread);
+    /* Set kick direction as v x a */
+    const float dir[3] = {
+      pj->gpart->a_grav[1] * pj->gpart->v_full[2] -
+          pj->gpart->a_grav[2] * pj->gpart->v_full[1],
+      pj->gpart->a_grav[2] * pj->gpart->v_full[0] -
+          pj->gpart->a_grav[0] * pj->gpart->v_full[2],
+      pj->gpart->a_grav[0] * pj->gpart->v_full[1] -
+          pj->gpart->a_grav[1] * pj->gpart->v_full[0]
+    };
+    const float norm = 
+        sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+
+    /* No normalization, no wind (should basically never happen) */
+    if (norm <= 0.f) {
+      warning("Normalization of wind direction is zero!\n(x, y, z) "
+              "= (%g, %g, %g); v=(%g, %g, %g); a=(%g, %g, %g); vw=%g",
+              dir[0], dir[1], dir[2], pj->gpart->v_full[0], pj->gpart->v_full[1], pj->gpart->v_full[2], pj->gpart->a_grav[0], pj->gpart->a_grav[1], pj->gpart->a_grav[2], fabs(wind_velocity * cosmo->a_inv));
+      assert(norm > 0.f);
+      return;
     }
+
+    const float prefactor = wind_velocity / norm;
+
+    /* Do the kicks by updating the particle velocity. */
+    pj->v_full[0] += dir[0] * prefactor;
+    pj->v_full[1] += dir[1] * prefactor;
+    pj->v_full[2] += dir[2] * prefactor;
+
+    /* DO WIND HEATING */
+    float u_new = fb_props->cold_wind_internal_energy;
+    if (fb_props->cold_wind_internal_energy < 
+            fb_props->hot_wind_internal_energy) {
+      float galaxy_stellar_mass =
+            pj->gpart->fof_data.group_stellar_mass;
+      if (galaxy_stellar_mass < fb_props->minimum_galaxy_stellar_mass) {
+        galaxy_stellar_mass = fb_props->minimum_galaxy_stellar_mass;
+      }
+      const float galaxy_stellar_mass_Msun = galaxy_stellar_mass * 
+      fb_props->mass_to_solar_mass;
+
+      /* Based on Pandya et al 2022 FIRE results */
+      float pandya_slope = 0.f;
+      if (galaxy_stellar_mass_Msun > 3.16e10) {
+        pandya_slope = -2.1f;
+      } else {
+        pandya_slope = -0.1f;
+      }
+
+      /* 0.2511886 = pow(10., -0.6) */
+      const float f_warm = 
+          0.2511886f * pow(galaxy_stellar_mass_Msun / 3.16e10f, pandya_slope);
+      /* additional 10% removed for cold phase */
+      const float hot_wind_fraction = max(0.f, 0.9f - f_warm);
+      const float rand_for_hot = 
+          random_unit_interval(pj->id, ti_current, 
+              random_number_stellar_feedback_3);
+      const float rand_for_spread = 
+          random_unit_interval(pj->id, ti_current, 
+              random_number_stellar_feedback);
+
+      /* If selected, heat the particle */
+      const float u_wind = 0.5 * wind_velocity_phys * wind_velocity_phys;
+      if (rand_for_hot < hot_wind_fraction && 
+              fb_props->hot_wind_internal_energy > u_wind) {
+          u_new = (fb_props->hot_wind_internal_energy - u_wind) * 
+                      (0.5 + rand_for_spread);
+          u_new += hydro_get_drifted_physical_internal_energy(pj, cosmo);
+      }
+    }
+
+    /* Set the wind particle internal energy */
+    hydro_set_physical_internal_energy(pj, xpj, cosmo, u_new);
+    hydro_set_drifted_physical_internal_energy(pj, cosmo, NULL, u_new);
+
+#ifdef FIREHOSE_DEBUG_CHECKS
+    /* For firehose model, set initial radius of stream */
+    if (si->feedback_data.firehose_radius_stream <= 0.f) {
+      error("Firehose error: firehose_radius_stream <= 0. sid=%lld "
+            "pid=%lld Rstream=%g",
+            si->id,
+            pj->id,
+            si->feedback_data.firehose_radius_stream);
+    }
+#endif
+
+    pj->chemistry_data.radius_stream = si->feedback_data.firehose_radius_stream;
+    pj->chemistry_data.exchanged_mass = 0.f;
+
+    /* FINISH UP FEEDBACK */
+    /* Turn off any star formation in wind particle.
+    * Record exp factor of when this particle was last ejected as -SFR. */
+    pj->sf_data.SFR = -cosmo->a;
+
+    /* Update the signal velocity of the particle based on the velocity kick,
+      wind_velocity must be PHYSICAL passed into this function */
+    hydro_set_v_sig_based_on_velocity_kick(pj, cosmo, wind_velocity_phys);
+
+    /* Impose maximal viscosity */
+    hydro_diffusive_feedback_reset(pj);
+
+    /* Synchronize the particle on the timeline */
+    timestep_sync_part(pj);
+
+    /* Mark to be decoupled */
+    pj->to_be_decoupled = 1;
+    pj->to_be_recoupled = 0;
+
+    /* Decouple the particles from the hydrodynamics */
+    pj->feedback_data.decoupling_delay_time =
+        fb_props->wind_decouple_time_factor *
+        cosmology_get_time_since_big_bang(cosmo, cosmo->a);
+    pj->chemistry_data.diffusion_coefficient = 0.f;
+
+    /* Take particle out of subgrid ISM mode */
+    pj->cooling_data.subgrid_temp = 0.f;
+    pj->cooling_data.subgrid_dens = hydro_get_physical_density(pj, cosmo);
+    pj->cooling_data.subgrid_fcold = 0.f;
+
+    pj->feedback_data.number_of_times_decoupled += 1;
+
+    /* Kicked and handled */
+    pj->feedback_data.kick_id = -1;
+
+    /** Log the wind event.
+     * z starid gasid dt M* vkick vkx vky vkz h x y z vx vy vz T rho v_sig tdec 
+     * Ndec Z
+     */
+    const float length_convert = cosmo->a * fb_props->length_to_kpc;
+    const float velocity_convert = cosmo->a_inv / fb_props->kms_to_internal;
+    const float rho_convert = cosmo->a3_inv * fb_props->rho_to_n_cgs;
+    const float u_convert =
+        cosmo->a_factor_internal_energy / fb_props->temp_to_u_factor;
+
+    printf("WIND_LOG %.5f %lld %g %g %g %g %g %lld %g %g %g %g %g %g "
+           "%g %g %g %g %g "
+           "%g %g %g %g %d %g\n",
+            cosmo->z,
+            si->id,
+            si->feedback_data.mass_to_launch * 
+                fb_props->mass_to_solar_mass,
+            si->feedback_data.total_mass_kicked *
+                fb_props->mass_to_solar_mass,
+            si->feedback_data.total_mass_kicked / 
+                si->mass,
+            1.f/si->birth_scale_factor - 1.f,
+            pj->gpart->fof_data.group_stellar_mass * 
+                fb_props->mass_to_solar_mass,
+            pj->id,
+            fabs(wind_velocity) * velocity_convert,
+            prefactor * dir[0] * velocity_convert,
+            prefactor * dir[1] * velocity_convert,
+            prefactor * dir[2] * velocity_convert,
+            pj->h * length_convert, 
+            pj->x[0] * length_convert,
+            pj->x[1] * length_convert,
+            pj->x[2] * length_convert,
+            pj->v_full[0] * velocity_convert,
+            pj->v_full[1] * velocity_convert,
+            pj->v_full[2] * velocity_convert,
+            pj->u * u_convert,
+            pj->rho * rho_convert,
+            pj->viscosity.v_sig * velocity_convert,
+            pj->feedback_data.decoupling_delay_time * fb_props->time_to_Myr,
+            pj->feedback_data.number_of_times_decoupled,
+            pj->chemistry_data.metal_mass_fraction_total);
+
   }
-
-  /* Set the wind particle temperature */
-  hydro_set_physical_internal_energy(pj, xpj, cosmo, u_new);
-  hydro_set_drifted_physical_internal_energy(pj, cosmo, NULL, u_new);
-
-  /* For firehose model, set initial radius of stream */
-  assert(si->feedback_data.firehose_radius_stream > 0.f);
-  pj->chemistry_data.radius_stream = si->feedback_data.firehose_radius_stream;
-  pj->chemistry_data.exchanged_mass = 0.f;
-
-  /* FINISH UP FEEDBACK */
-  /* Turn off any star formation in wind particle.
-   * Record exp factor of when this particle was last ejected as -SFR. */
-  pj->sf_data.SFR = -cosmo->a;
-
-  /* Update the signal velocity of the particle based on the velocity kick */
-  hydro_set_v_sig_based_on_velocity_kick(pj, cosmo, wind_velocity);
-
-  /* Impose maximal viscosity */
-  hydro_diffusive_feedback_reset(pj);
-
-  /* Synchronize the particle on the timeline */
-  timestep_sync_part(pj);
-
-  /* Decouple the particles from the hydrodynamics */
-  pj->feedback_data.decoupling_delay_time =
-      fb_props->wind_decouple_time_factor *
-      cosmology_get_time_since_big_bang(cosmo, cosmo->a);
-  pj->chemistry_data.diffusion_coefficient = 0.f;
-
-  /** Log the wind event.
-   * z starid gasid dt M* vkick vkx vky vkz h x y z vx vy vz T rho v_sig tdec Ndec Z
-   */
-  const float length_convert = cosmo->a * fb_props->length_to_kpc;
-  const float velocity_convert = cosmo->a_inv / fb_props->kms_to_internal;
-  const float rho_convert = cosmo->a3_inv * fb_props->rho_to_n_cgs;
-  const float u_convert =
-      cosmo->a_factor_internal_energy / fb_props->temp_to_u_factor;
-  printf("WIND_LOG %.5f %lld %g %g %g %g %lld %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %d %g\n",
-          cosmo->z,
-          si->id,
-	  si->feedback_data.feedback_mass_to_launch * fb_props->mass_to_solar_mass,
-	  si->feedback_data.feedback_energy_reservoir * fb_props->energy_to_cgs / 1.e51,
-	  1./si->birth_scale_factor - 1.,
-          pj->gpart->fof_data.group_stellar_mass * fb_props->mass_to_solar_mass,
-          pj->id,
-          wind_velocity,
-          prefactor * dir[0] * velocity_convert,
-          prefactor * dir[1] * velocity_convert,
-          prefactor * dir[2] * velocity_convert,
-          pj->h * length_convert, 
-          pj->x[0] * length_convert,
-          pj->x[1] * length_convert,
-          pj->x[2] * length_convert,
-          pj->v_full[0] * velocity_convert,
-          pj->v_full[1] * velocity_convert,
-          pj->v_full[2] * velocity_convert,
-          pj->u * u_convert,
-          pj->rho * rho_convert,
-          pj->viscosity.v_sig * velocity_convert,
-          pj->feedback_data.decoupling_delay_time * fb_props->time_to_Myr,
-          pj->feedback_data.number_of_times_decoupled,
-	        pj->chemistry_data.metal_mass_fraction_total);
-
 }
 
 /**
@@ -372,8 +512,8 @@ feedback_do_chemical_enrichment_of_gas_around_star(
     const struct feedback_props *fb_props, 
     const integertime_t ti_current) {
 
-  /* If no mass to distribute, nothing to do */
-  if (si->feedback_data.mass <= 0.f) return;
+  /* Nothing to distribute */
+  if (si->feedback_data.mass <= 0.) return;
 
   /* Gas particle density */
   const float rho_j = hydro_get_comoving_density(pj);
@@ -388,21 +528,24 @@ feedback_do_chemical_enrichment_of_gas_around_star(
   float wi;
   kernel_eval(ui, &wi);
 
-  /* Compute weighting for distributing feedback quantities */
-  float Omega_frac = si->feedback_data.enrichment_weight * wi / rho_j;
+  const double current_mass = hydro_get_mass(pj);
+  /* Compute weighting for distributing feedback quantities.
+   * f = (mi * wi) / sum(mj * wj) */
+  float Omega_frac = current_mass * wi / si->feedback_data.kernel_wt_sum;
 
   /* Never apply feedback if Omega_frac is bigger than or equal to unity */
-  if (Omega_frac < 0. || Omega_frac > 1.01) {
+  if (Omega_frac < 0.f || Omega_frac > 1.f) {
     warning(
         "Invalid fraction of material to distribute for star ID=%lld "
-        "Omega_frac=%e count since last enrich=%d enrichment_weight=%g wi=%g rho_j=%g",
+        "Omega_frac=%e count since last enrich=%d kernel_wt_sum=%g "
+        "wi=%g rho_j=%g",
         si->id, Omega_frac, si->count_since_last_enrichment,
-	  si->feedback_data.enrichment_weight , wi , rho_j);
-    if (Omega_frac > 1.0) Omega_frac = 1.0;
+	      si->feedback_data.kernel_wt_sum, wi , rho_j);
+    if (Omega_frac < 0.f || Omega_frac > 1.01f) error("Omega_frac too large! aborting");
+    Omega_frac = 1.f;
   }
 
   /* Update particle mass */
-  const double current_mass = hydro_get_mass(pj);
   const double delta_mass = si->feedback_data.mass * Omega_frac;
   const double new_mass = current_mass + delta_mass;
 
@@ -411,29 +554,56 @@ feedback_do_chemical_enrichment_of_gas_around_star(
   /* Inverse of the new mass */
   const double new_mass_inv = 1. / new_mass;
 
-  /* Update total metallicity */
-  const double current_metal_mass_total =
-      pj->chemistry_data.metal_mass_fraction_total * current_mass;
-  const double delta_metal_mass_total =
-      si->feedback_data.total_metal_mass * Omega_frac;
-  const double new_metal_mass_total =
-      current_metal_mass_total + delta_metal_mass_total;
+  /* Update particle energy */
+  const double injected_energy = si->feedback_data.energy * Omega_frac;
 
-  pj->chemistry_data.metal_mass_fraction_total =
-      new_metal_mass_total * new_mass_inv;
+  /* Compute the current kinetic energy */
+  const double current_v2 = pj->v_full[0] * pj->v_full[0] +
+                            pj->v_full[1] * pj->v_full[1] +
+                            pj->v_full[2] * pj->v_full[2];
+  const double current_kinetic_energy_gas =
+      0.5 * cosmo->a2_inv * current_mass * current_v2;
 
-  if (pj->chemistry_data.metal_mass_fraction_total < 0.f) {
-    error("Stellar feedback led to negative metallicity!"
-          "\tpid=%lld\n\tMnew=%g\n\tZ=%g\n\tOmega=%g\n"
-          "\tMZtot=%g\n\tMcurr=%g",
-          pj->id,
-          new_mass,
-          pj->chemistry_data.metal_mass_fraction_total,
-          Omega_frac,
-          si->feedback_data.total_metal_mass,
-          current_mass);
-    return;
-  }
+  /* Compute the current thermal energy */
+  const double current_thermal_energy =
+      current_mass * hydro_get_physical_internal_energy(pj, xpj, cosmo);
+
+  /* Update velocity following change in gas mass */
+  pj->v_full[0] *= current_mass * new_mass_inv;
+  pj->v_full[1] *= current_mass * new_mass_inv;
+  pj->v_full[2] *= current_mass * new_mass_inv;
+
+  /* Update velocity following addition of mass with different momentum */
+  pj->v_full[0] += delta_mass * new_mass_inv * si->v[0];
+  pj->v_full[1] += delta_mass * new_mass_inv * si->v[1];
+  pj->v_full[2] += delta_mass * new_mass_inv * si->v[2];
+
+  /* Compute the new kinetic energy */
+  const double new_v2 = pj->v_full[0] * pj->v_full[0] +
+                        pj->v_full[1] * pj->v_full[1] +
+                        pj->v_full[2] * pj->v_full[2];
+  const double new_kinetic_energy_gas = 0.5 * cosmo->a2_inv * new_mass * new_v2;
+
+  const double delta_KE = new_kinetic_energy_gas - current_kinetic_energy_gas;
+  double new_thermal_energy = 
+      current_thermal_energy + injected_energy - delta_KE;
+
+  /* Following SPHENIX, don't decrease energy by more than 2x */
+  new_thermal_energy = max(0.5f * current_thermal_energy, new_thermal_energy);
+
+  /* Never go below the absolute minimum */
+  const double min_u = hydro_props->minimal_internal_energy * new_mass;
+  new_thermal_energy = max(new_thermal_energy, min_u);
+
+  const double new_u = new_thermal_energy * new_mass_inv;
+
+  hydro_set_physical_internal_energy(pj, xpj, cosmo, new_u);
+  hydro_set_drifted_physical_internal_energy(pj, cosmo, /*pfloor=*/NULL,
+                                             new_u);
+  
+  /* Recompute Z since we do not track all of the metals from Chem5 */
+  pj->chemistry_data.metal_mass_fraction_total = 0.f;
+  
   /* Update mass fraction of each tracked element  */
   for (int elem = 0; elem < chemistry_element_count; elem++) {
     const double current_metal_mass =
@@ -444,16 +614,41 @@ feedback_do_chemical_enrichment_of_gas_around_star(
 
     pj->chemistry_data.metal_mass_fraction[elem] =
         new_metal_mass * new_mass_inv;
+
+    if (elem != chemistry_element_H && elem != chemistry_element_He) {
+      pj->chemistry_data.metal_mass_fraction_total +=
+          pj->chemistry_data.metal_mass_fraction[elem];
+    }
   }
 
-  /* Compute kernel-smoothed contribution to number of SNe going off this timestep */
+  /* Make sure that X + Y + Z = 1 */
+  const float Y_He = 
+      pj->chemistry_data.metal_mass_fraction[chemistry_element_He];
+  const float Z = pj->chemistry_data.metal_mass_fraction_total;
+  const float X_H = 1.f - Y_He - Z;
+
+  if (X_H < 0.f || X_H > 1.f) {
+    for (int elem = 0; elem < chemistry_element_count; elem++) {
+      warning("\telem[%d] is %g",
+              elem, pj->chemistry_data.metal_mass_fraction[elem]);
+    }
+
+    error("Hydrogen fraction exeeds unity or is negative for"
+          " particle id=%lld due to stellar feedback.", pj->id);
+  }
+
+  pj->chemistry_data.metal_mass_fraction[chemistry_element_H] = X_H;
+
+  /* Compute kernel-smoothed contribution to number of SNe going off 
+   * this timestep */
   pj->feedback_data.SNe_ThisTimeStep += 
       si->feedback_data.SNe_ThisTimeStep * Omega_frac;
   pj->feedback_data.SNe_ThisTimeStep = 
       fmax(pj->feedback_data.SNe_ThisTimeStep, 0.);
 
   /* Spread dust ejecta to gas */
-  for (int elem = chemistry_element_He; elem < chemistry_element_count; elem++) {
+  for (int elem = chemistry_element_He; 
+          elem < chemistry_element_count; elem++) {
     const double current_dust_mass =
         pj->cooling_data.dust_mass_fraction[elem] * pj->cooling_data.dust_mass;
     const double delta_dust_mass =
@@ -463,9 +658,11 @@ feedback_do_chemical_enrichment_of_gas_around_star(
     pj->cooling_data.dust_mass_fraction[elem] =
         (current_dust_mass + delta_dust_mass);
   }
+
   /* Sum up each element to get total dust mass */
   pj->cooling_data.dust_mass = 0.;
-  for (int elem = chemistry_element_He; elem < chemistry_element_count; elem++) {
+  for (int elem = chemistry_element_He; 
+          elem < chemistry_element_count; elem++) {
     pj->cooling_data.dust_mass += pj->cooling_data.dust_mass_fraction[elem];
   }
 
@@ -473,13 +670,15 @@ feedback_do_chemical_enrichment_of_gas_around_star(
     const double dust_mass_inv = 1. / pj->cooling_data.dust_mass;
 
     /* Divide by new dust mass to get the fractions */
-    for (int elem = chemistry_element_He; elem < chemistry_element_count; elem++) {
+    for (int elem = chemistry_element_He; 
+            elem < chemistry_element_count; elem++) {
       pj->cooling_data.dust_mass_fraction[elem] *= dust_mass_inv;
     }
 
     /* Check for inconsistency */
     if (pj->cooling_data.dust_mass > pj->mass) {
-      for (int elem = chemistry_element_He; elem < chemistry_element_count; elem++) {
+      for (int elem = chemistry_element_He; 
+              elem < chemistry_element_count; elem++) {
         message("DUST EXCEEDS MASS elem=%d md=%g delta=%g \n",
                 elem, 
                 pj->cooling_data.dust_mass_fraction[elem] * 
@@ -490,6 +689,12 @@ feedback_do_chemical_enrichment_of_gas_around_star(
       error("DUST EXCEEDS MASS mgas=%g  mdust=%g\n",
             pj->mass, 
             pj->cooling_data.dust_mass);
+    }
+  }
+  else {
+    /* For some reason the dust mass is zero or negative */
+    for (int elem = 0; elem < chemistry_element_count; elem++) {
+      pj->cooling_data.dust_mass_fraction[elem] = 0.f;
     }
   }
 
@@ -520,7 +725,7 @@ runner_iact_nonsym_feedback_apply(
     const integertime_t ti_current) {
 
   /* Ignore decoupled particles */
-  if (pj->feedback_data.decoupling_delay_time > 0.f) return;
+  if (pj->decoupled) return;
 
   /* Do chemical enrichment of gas, metals and dust from star */
   feedback_do_chemical_enrichment_of_gas_around_star(
@@ -555,7 +760,6 @@ runner_iact_nonsym_feedback_apply(
       pj->chemistry_data.G0 += fH2_shield * fH_shield * pow(10.,si->feedback_data.lum_habing) / (1.6e-3 * r2_in_cm);
     }
   }*/
-
 #endif
 
 }

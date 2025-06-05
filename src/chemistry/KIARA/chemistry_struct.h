@@ -19,8 +19,8 @@
 #ifndef SWIFT_CHEMISTRY_STRUCT_KIARA_H
 #define SWIFT_CHEMISTRY_STRUCT_KIARA_H
 
-#define FIREHOSE_COOLLIM 0.01f
-#define FIREHOSE_HEATLIM 1000.f
+#define FIREHOSE_COOLLIM 0.5f
+#define FIREHOSE_HEATLIM 10.f
 
 /**
  * @brief The individual elements traced in the KIARA model.
@@ -103,6 +103,9 @@ struct chemistry_global_data {
   /*! Firehose threshold relative velocity (km/s) above which model is turned off */
   float firehose_max_velocity;
 
+  /*! Firehose maximum fraction of particles' mass that can be mixed in a single step */
+  float firehose_max_fmix_per_step;
+
   /*! Dust sputtering constant */
   float dust_sputtering_const; 
 
@@ -181,6 +184,9 @@ struct chemistry_part_data {
   /*! Firehose ambient gas density */
   float rho_ambient;
 
+  /*! Firehose weighted ambient signal velocity */
+  float v_sig_ambient;
+
   /*! Weighting factor for ambient thermal energy sum */
   float w_ambient;
 
@@ -189,6 +195,24 @@ struct chemistry_part_data {
 
   /*! Firehose initial mass of the stream */
   float exchanged_mass;
+
+  /*! Firehose exchanged mass this step */
+  float dm;
+
+  /*! Firehose exchanged metal fractions */
+  float dm_Z[chemistry_element_count];
+  
+  /*! Firehose exchanged dust mass */
+  float dm_dust;
+
+  /*! Firehose exchanged dust mass metals */
+  float dm_dust_Z[chemistry_element_count];
+
+  /*! Firehose exchanged internal energy, internal units */
+  double du;
+
+  /*! Firehose exchanged velocities, internal units */
+  float dv[3];
 };
 
 #define chemistry_spart_data chemistry_part_data
