@@ -339,6 +339,227 @@ float rt_tchem_get_tchem_time(
 }
 
 /**
+ * @brief Compute the energy of a particle after dt and update the particle
+ * chemistry data
+ *
+ * @param phys_const The physical constants in internal units.
+ * @param us The internal system of units.
+ * @param cosmo The #cosmology.
+ * @param hydro_props The #hydro_props.
+ * @param cooling The #cooling_function_data used in the run.
+ * @param p Pointer to the particle data.
+ * @param xp Pointer to the particle extra data
+ * @param dt The time-step of this particle.
+ * @param mode 0=energy, 1=cooling time, 2=temperature, 3=pressure, 4=gamma
+ *
+ * @return desired quantity based on mode
+ */
+gr_float rt_cooling_grackle_driver(
+    const struct phys_const* restrict phys_const,
+    const struct unit_system* restrict us,
+    const struct cosmology* restrict cosmo,
+    const struct hydro_props* hydro_props,
+    const struct cooling_function_data* restrict cooling,
+    struct part* restrict p, struct xpart* restrict xp, double dt,
+    double T_floor, int mode, struct rt_props* rt_props) {
+  
+  /* initialize data to send to grackle */
+  gr_float *species_densities;
+  species_densities = (gr_float *)calloc(N_SPECIES, sizeof(gr_float));
+  grackle_field_data data;
+
+  /* load particle information from particle to grackle data */
+  cooling_copy_to_grackle(&data, us, cosmo, cooling, p, xp, dt, T_floor, species_densities, mode);
+
+  /* Run Grackle in desired mode */
+  gr_float return_value = 0.f;
+  double t_dust = 0.f;
+
+  switch (mode) {
+    case 0:
+      
+      /* get physical radiation energy density. */
+      float radiation_energy_density[RT_NGROUPS];
+      rt_part_get_physical_radiation_energy_density(p, radiation_energy_density, cosmo);
+
+      /* TODO: put the iact_rates to the cooling grackle data. */
+      // 1. Allocate memory for 5 gr_float values
+      gr_float *iact_rates = (gr_float *)malloc(5 * sizeof(gr_float));
+      if (iact_rates == NULL) {
+    	fprintf(stderr, "Error: malloc failed for iact_rates\n");
+    	exit(EXIT_FAILURE);
+      }
+
+      rt_get_interaction_rates_for_grackle(
+      	iact_rates, radiation_energy_density, species_densities,
+      	rt_props->average_photon_energy, rt_props->energy_weighted_cross_sections,
+      	rt_props->number_weighted_cross_sections, phys_const, us);
+
+      /* TODO: currently manually add iact_rates in grackle data field here. */
+      data.RT_heating_rate = &iact_rates[0];
+      data.RT_HI_ionization_rate = &iact_rates[1];
+      data.RT_HeI_ionization_rate = &iact_rates[2];
+      data.RT_HeII_ionization_rate = &iact_rates[3];
+      data.RT_H2_dissociation_rate = &iact_rates[4];
+
+      //printf("=== RT computed interaction rates ===\n");
+      //printf("RT RT_heating_rate         = %e\n", iact_rates[0]);
+      //printf("RT RT_HI_ionization_rate   = %e\n", iact_rates[1]);
+      //printf("RT RT_HeI_ionization_rate  = %e\n", iact_rates[2]);
+      //printf("RT RT_HeII_ionization_rate = %e\n", iact_rates[3]);
+      //printf("RT RT_H2_dissociation_rate = %e\n", iact_rates[4]);
+      //printf("RT data RT_heating_rate         = %e\n", *data.RT_heating_rate);
+      //printf("RT data RT_HI_ionization_rate   = %e\n", *data.RT_HI_ionization_rate);
+      //printf("RT data RT_HeI_ionization_rate  = %e\n", *data.RT_HeI_ionization_rate);
+      //printf("RT data RT_HeII_ionization_rate = %e\n", *data.RT_HeII_ionization_rate);
+      //printf("RT data RT_H2_dissociation_rate = %e\n", *data.RT_H2_dissociation_rate);
+      //printf("RT data data->HI_density = %e\n", *data.HI_density);
+      //printf("RT data data->HII_density = %e\n", *data.HII_density);
+      
+      /* Check for unphysical values (e.g., NaN or negative rates) */
+      for (int i = 0; i < 5; i++) {
+        if (iact_rates[i] < 0.) {
+          error("Unphysical negative rate detected at index %d: %.4g", i, iact_rates[i]);
+      } else if (isnan(iact_rates[i]) || !isfinite(iact_rates[i])) {
+        error("NaN detected in rate at index %d", i);
+      }
+        //message("RT rate at index %d: %.4g", i, iact_rates[i]);
+      }
+
+      /* solve chemistry */
+      /* Note: `grackle_rates` is a global variable defined by grackle itself.
+      * Using a manually allocd and initialized variable here fails with MPI
+      * for some reason. */
+      if (local_solve_chemistry(
+          &rt_props->grackle_chemistry_data, &rt_props->grackle_chemistry_rates,
+          &rt_props->grackle_units, &data, dt) == 0)
+        error("Error in solve_chemistry.");
+      
+      /* TODO: try this in the future as well to see if it has some difference. solve chemistry, advance thermal energy by dt */
+      //if (solve_chemistry(&units, &data, dt) == 0) {
+      //  error("Error in Grackle solve_chemistry.");
+      //}
+
+      /* copy from grackle data to particle */
+      cooling_copy_from_grackle(&data, p, xp, cooling, species_densities[12]);
+      return_value = data.internal_energy[0];
+#if COOLING_GRACKLE_MODE >= 2
+      /* Compute dust temperature */
+      t_dust = p->cooling_data.dust_temperature;
+      if (calculate_dust_temperature(&units, &data, &t_dust) == 0) {
+        error("Error in Grackle calculate dust temperature.");
+      }
+
+      p->cooling_data.dust_temperature = t_dust;
+
+      /* Reset accumulated local variables to zero */
+      p->feedback_data.SNe_ThisTimeStep = 0.f;
+
+      /* TODO: do we include this part as well? Re-do thermochemistry? */
+      //if ((rt_props->max_tchem_recursion > depth) &&
+      //    (fabsf(u_old - u_new) > 0.1 * u_old)) {
+      /* Note that grackle already has internal "10% rules". But sometimes, they
+      * may not suffice. */
+      //rt_clean_grackle_fields(&particle_grackle_data);
+      //  cooling_grackle_free_data(&data);
+      //  free(species_densities);
+      //  free(iact_rates);
+      //  rt_do_thermochemistry_with_subgrid(p, xp, rt_props, cosmo, hydro_props, floor_props, phys_const, cooling, us,
+      //                        0.5 * dt, 0.5 * dt_therm, depth + 1);
+      //  rt_do_thermochemistry_with_subgrid(p, xp, rt_props, cosmo, hydro_props, floor_props, phys_const, cooling, us,
+      //                        0.5 * dt, 0.5 * dt_therm, depth + 1);
+      //  return;
+      //}
+
+      /* Update mass fractions */
+      const gr_float one_over_rho = 1. / density;
+      p->rt_data.tchem.mass_fraction_HI =
+        data.HI_density[0] * one_over_rho;
+      p->rt_data.tchem.mass_fraction_HII =
+        data.HII_density[0] * one_over_rho;
+      p->rt_data.tchem.mass_fraction_HeI =
+        data.HeI_density[0] * one_over_rho;
+      p->rt_data.tchem.mass_fraction_HeII =
+        data.HeII_density[0] * one_over_rho;
+      p->rt_data.tchem.mass_fraction_HeIII =
+        data.HeIII_density[0] * one_over_rho;
+
+      /* Update radiation fields */
+      /* First get absorption rates at the start and the end of the step */
+      double absorption_rates[RT_NGROUPS];
+      rt_get_absorption_rates(
+         absorption_rates, species_densities, rt_props->average_photon_energy,
+         rt_props->number_weighted_cross_sections, phys_const, us);
+
+      gr_float species_densities_new[6];
+      species_densities_new[0] = data.HI_density[0];
+      species_densities_new[1] = data.HII_density[0];
+      species_densities_new[2] = data.HeI_density[0];
+      species_densities_new[3] = data.HeII_density[0];
+      species_densities_new[4] = data.HeIII_density[0];
+      species_densities_new[5] = data.e_density[0];
+      double absorption_rates_new[RT_NGROUPS];
+      rt_get_absorption_rates(absorption_rates_new, species_densities_new,
+                          rt_props->average_photon_energy,
+                          rt_props->number_weighted_cross_sections, phys_const,
+                          us);
+
+      /* Now remove absorbed radiation */
+      for (int g = 0; g < RT_NGROUPS; g++) {
+        const float E_old = p->rt_data.radiation[g].energy_density;
+        double f = dt * 0.5 * (absorption_rates[g] + absorption_rates_new[g]);
+        f = min(1., f);
+        f = max(0., f);
+        p->rt_data.radiation[g].energy_density *= (1. - f);
+      for (int i = 0; i < 3; i++) {
+        p->rt_data.radiation[g].flux[i] *= (1. - f);
+      }
+
+        rt_check_unphysical_state(&p->rt_data.radiation[g].energy_density,
+                              p->rt_data.radiation[g].flux, E_old,
+                              /*callloc=*/2);
+     }
+
+     /* Clean up after yourself. */
+     free(iact_rates);
+#endif
+      break;
+
+    case 1:
+      /* compute cooling time */
+      if (calculate_cooling_time(&units, &data, &return_value) == 0) {
+        error("Error in Grackle calculate_cooling_time.");
+      }
+      break;
+
+    case 2:
+      /* compute temperature */
+      if (calculate_temperature(&units, &data, &return_value) == 0) {
+        error("Error in Grackle calculate_temperature.");
+      }
+      break;
+
+    case 3:
+      /* compute pressure */
+      if (calculate_pressure(&units, &data, &return_value) == 0) {
+        error("Error in Grackle calculate_pressure.");
+      }
+      break;
+    case 4:
+      /* compute gamma */
+      if (calculate_gamma(&units, &data, &return_value) == 0) {
+        error("Error in Grackle calculate_gamma.");
+      }
+      break;
+  }
+  
+  cooling_grackle_free_data(&data);
+  free(species_densities);
+
+  return return_value;
+}
+
+/**
  * @brief Main function for the thermochemistry step when coupling with 
  * subgrid physics.
  *
@@ -453,110 +674,12 @@ INLINE void rt_do_thermochemistry_with_subgrid(
   const float u_old = internal_energy;
 #endif
 
-  /* initialize data to send to grackle */
-  gr_float *species_densities;
-  species_densities = (gr_float *)calloc(N_SPECIES, sizeof(gr_float));
-  grackle_field_data data;
-
-  /* load particle information from particle to grackle data */
-  cooling_copy_to_grackle(&data, us, cosmo, cooling, p, xp, dt, T_floor, species_densities);
-
-  float radiation_energy_density[RT_NGROUPS];
-  rt_part_get_physical_radiation_energy_density(p, radiation_energy_density, cosmo);
-
-  /* TODO: put the iact_rates to the cooling grackle data. */
-  //gr_float iact_rates[5];
-  // 1. Allocate memory for 5 gr_float values
-  gr_float *iact_rates = (gr_float *)malloc(5 * sizeof(gr_float));
-  if (iact_rates == NULL) {
-    fprintf(stderr, "Error: malloc failed for iact_rates\n");
-    exit(EXIT_FAILURE);
-  }
-
-  rt_get_interaction_rates_for_grackle(
-      iact_rates, radiation_energy_density, species_densities,
-      rt_props->average_photon_energy, rt_props->energy_weighted_cross_sections,
-      rt_props->number_weighted_cross_sections, phys_const, us);
-
-  /* TODO: currently manually add iact_rates in grackle data field here. */
-  data.RT_heating_rate = &iact_rates[0];
-  data.RT_HI_ionization_rate = &iact_rates[1];
-  data.RT_HeI_ionization_rate = &iact_rates[2];
-  data.RT_HeII_ionization_rate = &iact_rates[3];
-  data.RT_H2_dissociation_rate = &iact_rates[4];
-
-  //printf("=== RT computed interaction rates ===\n");
-  //printf("RT RT_heating_rate         = %e\n", iact_rates[0]);
-  //printf("RT RT_HI_ionization_rate   = %e\n", iact_rates[1]);
-  //printf("RT RT_HeI_ionization_rate  = %e\n", iact_rates[2]);
-  //printf("RT RT_HeII_ionization_rate = %e\n", iact_rates[3]);
-  //printf("RT RT_H2_dissociation_rate = %e\n", iact_rates[4]);
-  //printf("RT data RT_heating_rate         = %e\n", *data.RT_heating_rate);
-  //printf("RT data RT_HI_ionization_rate   = %e\n", *data.RT_HI_ionization_rate);
-  //printf("RT data RT_HeI_ionization_rate  = %e\n", *data.RT_HeI_ionization_rate);
-  //printf("RT data RT_HeII_ionization_rate = %e\n", *data.RT_HeII_ionization_rate);
-  //printf("RT data RT_H2_dissociation_rate = %e\n", *data.RT_H2_dissociation_rate);
-  //printf("RT data data->HI_density = %e\n", *data.HI_density);
-  //printf("RT data data->HII_density = %e\n", *data.HII_density);
-
-  /* Check for unphysical values (e.g., NaN or negative rates) */
-  for (int i = 0; i < 5; i++) {
-    if (iact_rates[i] < 0.) {
-        error("Unphysical negative rate detected at index %d: %.4g", i, iact_rates[i]);
-    } else if (isnan(iact_rates[i]) || !isfinite(iact_rates[i])) {
-        error("NaN detected in rate at index %d", i);
-    }
-    //message("RT rate at index %d: %.4g", i, iact_rates[i]);
-  }
-
-  /* solve chemistry */
-  /* Note: `grackle_rates` is a global variable defined by grackle itself.
-   * Using a manually allocd and initialized variable here fails with MPI
-   * for some reason. */
-  if (local_solve_chemistry(
-          &rt_props->grackle_chemistry_data, &rt_props->grackle_chemistry_rates,
-          &rt_props->grackle_units, &data, dt) == 0)
-    error("Error in solve_chemistry.");
-
-  /* copy from grackle data to particle */
-  cooling_copy_from_grackle(&data, p, xp, cooling, species_densities[12]);
-
-#if COOLING_GRACKLE_MODE >= 2
-  double t_dust = 0.f;
-  /* Compute dust temperature */
-  t_dust = p->cooling_data.dust_temperature;
-  if (calculate_dust_temperature(&rt_props->grackle_units, &data, &t_dust) == 0) {
-     error("Error in Grackle calculate dust temperature.");
-  }
-
-  p->cooling_data.dust_temperature = t_dust;
-
-  /* Reset accumulated local variables to zero */
-  p->feedback_data.SNe_ThisTimeStep = 0.f;
-#endif
-
   /* copy updated grackle data to particle */
   /* update particle internal energy. Grackle had access by reference
    * to internal_energy */
   internal_energy_phys = data.internal_energy[0];
   float u_new = max(internal_energy_phys, u_minimal);
-
-  /* Re-do thermochemistry? */
-  //if ((rt_props->max_tchem_recursion > depth) &&
-  //    (fabsf(u_old - u_new) > 0.1 * u_old)) {
-    /* Note that grackle already has internal "10% rules". But sometimes, they
-     * may not suffice. */
-    //rt_clean_grackle_fields(&particle_grackle_data);
-  //  cooling_grackle_free_data(&data);
-  //  free(species_densities);
-  //  free(iact_rates);
-  //  rt_do_thermochemistry_with_subgrid(p, xp, rt_props, cosmo, hydro_props, floor_props, phys_const, cooling, us,
-  //                        0.5 * dt, 0.5 * dt_therm, depth + 1);
-  //  rt_do_thermochemistry_with_subgrid(p, xp, rt_props, cosmo, hydro_props, floor_props, phys_const, cooling, us,
-  //                        0.5 * dt, 0.5 * dt_therm, depth + 1);
-  //  return;
-  //}
-
+  
   /* Assign new thermal energy to particle */
   float cool_du_dt = 0.;
 
@@ -625,59 +748,5 @@ INLINE void rt_do_thermochemistry_with_subgrid(
   /* set subgrid properties for use in SF routine */
   cooling_set_particle_subgrid_properties(
       phys_const, us, cosmo, hydro_props, floor_props, cooling, p, xp);
-
-  /* Update mass fractions */
-  const gr_float one_over_rho = 1. / density;
-  p->rt_data.tchem.mass_fraction_HI =
-      data.HI_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HII =
-      data.HII_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HeI =
-      data.HeI_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HeII =
-      data.HeII_density[0] * one_over_rho;
-  p->rt_data.tchem.mass_fraction_HeIII =
-      data.HeIII_density[0] * one_over_rho;
-
-  /* Update radiation fields */
-  /* First get absorption rates at the start and the end of the step */
-  double absorption_rates[RT_NGROUPS];
-  rt_get_absorption_rates(
-      absorption_rates, species_densities, rt_props->average_photon_energy,
-      rt_props->number_weighted_cross_sections, phys_const, us);
-
-  gr_float species_densities_new[6];
-  species_densities_new[0] = data.HI_density[0];
-  species_densities_new[1] = data.HII_density[0];
-  species_densities_new[2] = data.HeI_density[0];
-  species_densities_new[3] = data.HeII_density[0];
-  species_densities_new[4] = data.HeIII_density[0];
-  species_densities_new[5] = data.e_density[0];
-  double absorption_rates_new[RT_NGROUPS];
-  rt_get_absorption_rates(absorption_rates_new, species_densities_new,
-                          rt_props->average_photon_energy,
-                          rt_props->number_weighted_cross_sections, phys_const,
-                          us);
-
-  /* Now remove absorbed radiation */
-  for (int g = 0; g < RT_NGROUPS; g++) {
-    const float E_old = p->rt_data.radiation[g].energy_density;
-    double f = dt * 0.5 * (absorption_rates[g] + absorption_rates_new[g]);
-    f = min(1., f);
-    f = max(0., f);
-    p->rt_data.radiation[g].energy_density *= (1. - f);
-    for (int i = 0; i < 3; i++) {
-      p->rt_data.radiation[g].flux[i] *= (1. - f);
-    }
-
-    rt_check_unphysical_state(&p->rt_data.radiation[g].energy_density,
-                              p->rt_data.radiation[g].flux, E_old,
-                              /*callloc=*/2);
-  }
-
-  /* Clean up after yourself. */
-  cooling_grackle_free_data(&data);
-  free(species_densities);
-  free(iact_rates);
 }
 
