@@ -26,6 +26,8 @@
 
 #include "feedback.h"
 #include "runner_doiact_stars.h"
+#include "stars.h"
+#include "engine.h"
 
 #ifdef RT_NONE
 #define WITH_RT 0
@@ -171,7 +173,12 @@ void DOSELF1_STARS(struct runner *r, const struct cell *c,
         runner_iact_nonsym_rt_injection_prep(r2, dx, hi, hj, si, pj, cosmo,
                                              e->rt_props);
 #elif (FUNCTION_TASK_LOOP == TASK_LOOP_FEEDBACK)
-        runner_iact_rt_inject(r2, dx, hi, hj, si, pj, a, H, e->rt_props);
+        const struct unit_system *us = e->internal_units;
+  const int with_cosmology = (e->policy & engine_policy_cosmology);
+	/* Calculate age of the star at current time */
+              const double star_age_end_of_step =
+                  stars_compute_age(si, e->cosmology, e->time, with_cosmology);
+	runner_iact_rt_inject(r2, dx, hi, hj, si, pj, a, H, e->rt_props, star_age_end_of_step, us);
 #endif
       }
     } /* loop over the parts in ci. */
@@ -336,7 +343,12 @@ void DO_NONSYM_PAIR1_STARS_NAIVE(struct runner *r,
         runner_iact_nonsym_rt_injection_prep(r2, dx, hi, hj, si, pj, cosmo,
                                              e->rt_props);
 #elif (FUNCTION_TASK_LOOP == TASK_LOOP_FEEDBACK)
-        runner_iact_rt_inject(r2, dx, hi, hj, si, pj, a, H, e->rt_props);
+        const struct unit_system *us = e->internal_units;
+  const int with_cosmology = (e->policy & engine_policy_cosmology);
+	/* Calculate age of the star at current time */
+              const double star_age_end_of_step =
+                  stars_compute_age(si, e->cosmology, e->time, with_cosmology);
+	runner_iact_rt_inject(r2, dx, hi, hj, si, pj, a, H, e->rt_props, star_age_end_of_step, us);
 #endif
       }
     } /* loop over the parts in cj. */
@@ -563,7 +575,12 @@ void DO_SYM_PAIR1_STARS(struct runner *r, const struct cell *restrict ci,
           runner_iact_nonsym_rt_injection_prep(r2, dx, hi, hj, spi, pj, cosmo,
                                                e->rt_props);
 #elif (FUNCTION_TASK_LOOP == TASK_LOOP_FEEDBACK)
-          runner_iact_rt_inject(r2, dx, hi, hj, spi, pj, a, H, e->rt_props);
+          const struct unit_system *us = e->internal_units;
+  const int with_cosmology = (e->policy & engine_policy_cosmology);
+	  /* Calculate age of the star at current time */
+              const double star_age_end_of_step =
+                  stars_compute_age(spi, e->cosmology, e->time, with_cosmology);
+	  runner_iact_rt_inject(r2, dx, hi, hj, spi, pj, a, H, e->rt_props, star_age_end_of_step, us);
 #endif
         }
       } /* loop over the parts in cj. */
@@ -727,7 +744,12 @@ void DO_SYM_PAIR1_STARS(struct runner *r, const struct cell *restrict ci,
           runner_iact_nonsym_rt_injection_prep(r2, dx, hj, hi, spj, pi, cosmo,
                                                e->rt_props);
 #elif (FUNCTION_TASK_LOOP == TASK_LOOP_FEEDBACK)
-          runner_iact_rt_inject(r2, dx, hj, hi, spj, pi, a, H, e->rt_props);
+          const struct unit_system *us = e->internal_units;
+  const int with_cosmology = (e->policy & engine_policy_cosmology);
+	  /* Calculate age of the star at current time */
+              const double star_age_end_of_step =
+                  stars_compute_age(spj, e->cosmology, e->time, with_cosmology);
+	  runner_iact_rt_inject(r2, dx, hj, hi, spj, pi, a, H, e->rt_props, star_age_end_of_step, us);
 #endif
         }
       } /* loop over the parts in ci. */

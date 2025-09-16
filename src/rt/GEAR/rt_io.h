@@ -239,41 +239,49 @@ INLINE static int rt_write_particles(const struct part* parts,
 #endif
 
 #ifdef SWIFT_RT_DEBUG_CHECKS
-  num_elements += 8;
-  list[3] =
+  //num_elements += 8;
+  list[num_elements] =
       io_make_output_field("RTDebugInjectionDone", INT, 1, UNIT_CONV_NO_UNITS,
                            0, parts, rt_data.debug_injection_done,
                            "How many times rt_injection_update_photon_density "
                            "has been called");
-  list[4] = io_make_output_field(
+  num_elements ++;
+  list[num_elements] = io_make_output_field(
       "RTDebugCallsIactGradientInteractions", INT, 1, UNIT_CONV_NO_UNITS, 0,
       parts, rt_data.debug_calls_iact_gradient_interaction,
       "number of calls to this particle during the gradient interaction loop "
       "from the actual interaction function");
-  list[5] = io_make_output_field("RTDebugCallsIactTransportInteractions", INT,
+  num_elements ++;
+  list[num_elements] = io_make_output_field("RTDebugCallsIactTransportInteractions", INT,
                                  1, UNIT_CONV_NO_UNITS, 0, parts,
                                  rt_data.debug_calls_iact_transport_interaction,
                                  "number of calls to this particle during the "
                                  "transport interaction loop from the actual "
                                  "interaction function");
-  list[6] =
+  num_elements ++;
+  list[num_elements] =
       io_make_output_field("RTDebugGradientsDone", INT, 1, UNIT_CONV_NO_UNITS,
                            0, parts, rt_data.debug_gradients_done,
                            "How many times finalise_gradients was called");
-  list[7] =
+  num_elements ++;
+  list[num_elements] =
       io_make_output_field("RTDebugTransportDone", INT, 1, UNIT_CONV_NO_UNITS,
                            0, parts, rt_data.debug_transport_done,
                            "How many times finalise_transport was called");
-  list[8] = io_make_output_field(
+  num_elements ++;
+  list[num_elements] = io_make_output_field(
       "RTDebugThermochemistryDone", INT, 1, UNIT_CONV_NO_UNITS, 0, parts,
       rt_data.debug_thermochem_done, "How many times rt_tchem was called");
-  list[9] = io_make_output_field(
+  num_elements ++;
+  list[num_elements] = io_make_output_field(
       "RTDebugRadAbsorbedTot", ULONGLONG, 1, UNIT_CONV_NO_UNITS, 0, parts,
       rt_data.debug_radiation_absorbed_tot,
       "Radiation absorbed by this part during its lifetime");
-  list[10] = io_make_output_field(
+  num_elements ++;
+  list[num_elements] = io_make_output_field(
       "RTDebugSubcycles", INT, 1, UNIT_CONV_NO_UNITS, 0, parts,
       rt_data.debug_nsubcycles, "How many times this part was subcycled");
+  num_elements ++;
 #endif
 
   return num_elements;

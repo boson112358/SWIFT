@@ -77,6 +77,19 @@ rt_compute_stellar_emission_rate(struct spart* restrict sp, double time,
   double star_age_begin_of_step = star_age - dt;
   star_age_begin_of_step = max(0.l, star_age_begin_of_step);
 
+  /* Convert some quantities. */
+  const double time_to_Myr = units_cgs_conversion_factor(internal_units, UNIT_CONV_TIME) /
+          (365.25f * 24.f * 60.f * 60.f * 1e6f);
+  /* Get the converted quantities. */
+  const double star_age_before_Myr = star_age_begin_of_step * time_to_Myr;
+  const double star_age_now_Myr = star_age * time_to_Myr;
+
+  message("star age check: star_age_begin_of_step (%.6e), star_age (%.6e) for star %lld,star_age_before_Myr(%.6e), star_age_now_Myr(%.6e)",
+          star_age_begin_of_step, star_age, sp->id, star_age_before_Myr, star_age_now_Myr);
+
+  if (star_age_begin_of_step > star_age)
+    error("star_age_begin_of_step (%.6e) > star_age (%.6e) for star %lld, star_age_before_Myr(%.6e), star_age_now_Myr(%.6e), dt=%e",star_age_begin_of_step, star_age, sp->id, star_age_before_Myr, star_age_now_Myr, dt);
+
   double emission_this_step[RT_NGROUPS];
   for (int g = 0; g < RT_NGROUPS; g++) emission_this_step[g] = 0.;
 
@@ -528,6 +541,11 @@ __attribute__((always_inline)) INLINE static void rt_finalise_transport(
 
   for (int g = 0; g < RT_NGROUPS; g++) {
     const float e_old = rtd->radiation[g].energy_density;
+    //const float f_old[3] = {
+    //    rtd->radiation[g].flux[0],
+    //    rtd->radiation[g].flux[1],
+    //    rtd->radiation[g].flux[2]
+    //};
 
     /* Note: in this scheme, we're updating d/dt (U * V) + sum F * A * dt = 0.
      * So we'll need the division by the volume here. */
@@ -551,6 +569,96 @@ __attribute__((always_inline)) INLINE static void rt_finalise_transport(
     rtd->radiation[g].flux[2] -=
         rtd->radiation[g].flux[2] *
         redshift_factor;  // Energy lost due to redshift
+    
+    /* --- Check: already huge AND jump > 5 orders of magnitude --- */
+    //if (e_old > 0 &&
+    //  e_old >= 1e5 &&
+    //  (rtd->radiation[g].energy_density / e_old > 1e5)) {
+
+    //  double flux_contrib = rtd->flux[g].energy * Vinv;
+    //  double redshift_loss = rtd->radiation[g].energy_density * redshift_factor;
+      
+    //  printf("=== Energy density runaway warning ===\n");
+    //  printf("Particle ID = %lld\n", (long long)p->id); // replace with actual ID field
+    //  printf("Group %d\n", g);
+    //  printf("E_old = %.6e\n", e_old);
+    //  printf("E_new = %.6e\n", rtd->radiation[g].energy_density);
+    //  printf("Flux contribution = %.6e\n", flux_contrib);
+    //  printf("Redshift loss = %.6e\n", redshift_loss);
+    //  printf("Vinv = %.6e, redshift_factor = %.6e\n", Vinv, redshift_factor);
+    //  printf("Flux_energy = %.6e\n", rtd->flux[g].energy);
+    //  printf("Flux vector = [%.6e %.6e %.6e]\n",
+    //       rtd->flux[g].flux[0],
+    //       rtd->flux[g].flux[1],
+    //       rtd->flux[g].flux[2]);
+    //  fflush(stdout);   // force all printf buffers to flush
+    //  fprintf(stderr, "Fatal error: runaway energy density detected.\n");
+    //  abort();
+    //}
+
+    //if (p->id == 2906974) {
+    //	double z = 1.0 / cosmo->a - 1.0;
+    //	const int decoupled = p->decoupled;
+    //printf("=== Track particle 2906974(rt_finalise_transport) ===\n");
+    //printf("Redshift = %e\n", z);
+    //printf("Particle is %sdecoupled\n", decoupled ? "" : "NOT ");
+    //printf("Group %d\n", g);
+    //printf("E_old = %.6e\n", e_old);
+    //printf("E_new = %.6e\n", rtd->radiation[g].energy_density);
+    //printf("Energy density = %e\n", rtd->radiation[g].energy_density);
+    //printf("Density (rho) = %e\n", p->rho);
+    //printf("Smoothing length (h) = %e\n", p->h);
+    //printf("Vinv = %.6e\n", Vinv);
+    //printf("Flux energy = %e\n", rtd->flux[g].energy);
+    //printf("Flux vector = [%.6e %.6e %.6e]\n",
+    //       rtd->flux[g].flux[0],
+    //       rtd->flux[g].flux[1],
+    //       rtd->flux[g].flux[2]);
+    //printf("Radiation Flux vector = [%.6e %.6e %.6e]\n",
+    //       rtd->radiation[g].flux[0],
+    //       rtd->radiation[g].flux[1],
+    //       rtd->radiation[g].flux[2]);
+    //printf("--------------------------------------\n");
+    //fflush(stdout);  // make sure it prints immediately
+    //	}
+    // Debug print
+    //printf("Group %d:\n", g);
+    //printf("  Flux_energy = %e\n", rtd->flux[g].energy);
+    //printf("  Vinv = %e\n", Vinv);
+    //printf("  Flux = [%e, %e, %e]\n",
+    //       rtd->flux[g].flux[0], rtd->flux[g].flux[1], rtd->flux[g].flux[2]);
+    //printf("  Updated Energy_density = %e\n", rtd->radiation[g].energy_density);
+    //printf("  Updated Flux = [%e, %e, %e]\n\n",
+    //       rtd->radiation[g].flux[0], rtd->radiation[g].flux[1], rtd->radiation[g].flux[2]);
+
+    // --- Check for jumps of > 5 orders of magnitude ---
+    //if (e_old > 0 && (rtd->radiation[g].energy_density / e_old > 1e5 || rtd->radiation[g].energy_density / e_old < 1e-5)) {
+    //float flux_contrib = rtd->flux[g].energy * Vinv;
+    //float redshift_loss = rtd->radiation[g].energy_density * redshift_factor;
+
+    //printf("=== Energy density jump warning ===\n");
+    //printf("Group %d\n", g);
+    //printf("E_old = %.6e\n", e_old);
+    //printf("E_new = %.6e\n", rtd->radiation[g].energy_density);
+    //printf("Flux contribution = %.6e\n", flux_contrib);
+    //printf("Redshift loss = %.6e\n", redshift_loss);
+    //printf("Vinv = %.6e, redshift_factor = %.6e\n", Vinv, redshift_factor);
+    //printf("  Flux_energy = %e\n", rtd->flux[g].energy);
+    //printf("Flux vector = [%.6e %.6e %.6e]\n",
+    //       rtd->flux[g].flux[0],
+    //       rtd->flux[g].flux[1],
+    //       rtd->flux[g].flux[2]);
+    //	    printf("Warning: Energy density jump >5 orders of magnitude in group %d (old=%e, new=%e)\n",
+    //           g, e_old, rtd->radiation[g].energy_density);
+    //}
+
+    //for (int k = 0; k < 3; k++) {
+    //    float f_new = rtd->radiation[g].flux[k];
+    //    if (fabsf(f_old[k]) > 0 && (f_new / f_old[k] > 1e5 || f_new / f_old[k] < 1e-5)) {
+    //        printf("Warning: Flux[%d] jump >5 orders of magnitude in group %d (old=%e, new=%e)\n",
+    //               k, g, f_old[k], f_new);
+    //    }
+    //}
 
     rt_check_unphysical_state(&rtd->radiation[g].energy_density,
                               rtd->radiation[g].flux, e_old, /*callloc=*/4);
