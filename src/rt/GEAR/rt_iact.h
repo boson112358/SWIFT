@@ -438,7 +438,8 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_flux_common(
      * the fluxes are always exchanged symmetrically. Thanks to our sneaky use
      * of flux_dt, we can detect inactive neighbours through their negative time
      * step. */
-    if (mindt > 0.f){
+    /* Make sure mindt larger than 0 to avoid mindt=-1 case. */
+    if (mindt > 0.f) {
     rti->flux[g].energy -= totflux[0] * mindt;
     rti->flux[g].flux[0] -= totflux[1] * mindt;
     rti->flux[g].flux[1] -= totflux[2] * mindt;
@@ -540,7 +541,6 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_flux_common(
     	abort();
 	}
     
-
   }
 }
 
