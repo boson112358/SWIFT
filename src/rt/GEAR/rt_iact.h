@@ -99,7 +99,7 @@ runner_iact_nonsym_rt_injection_prep(const float r2, const float dx[3],
 __attribute__((always_inline)) INLINE static void runner_iact_rt_inject(
     const float r2, const float dx[3], const float hi, const float hj,
     struct spart *restrict si, struct part *restrict pj, const float a,
-    const float H, const struct rt_props *rt_props) {
+    const float H, const struct rt_props *rt_props, const double star_age, const struct unit_system* internal_units) {
 
   /* If the star doesn't have any neighbours, we
    * have nothing to do here. */
@@ -113,9 +113,17 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_inject(
     error(
         "Injecting energy from star that wasn't called during injection prep");
 
-  if (!si->rt_data.debug_emission_rate_set)
-    error("Injecting energy from star without setting emission rate");
-
+  /* skip this for now since we only do first 100 Myr injection, injection rate is 0 afterwards */
+  if (!si->rt_data.debug_emission_rate_set) {
+    	  /* Convert some quantities. */
+  const double time_to_Myr = units_cgs_conversion_factor(internal_units, UNIT_CONV_TIME) /
+          (365.25f * 24.f * 60.f * 60.f * 1e6f);
+  /* Get the converted quantities. */
+  const double star_age_Myr = star_age * time_to_Myr;
+	  message("Star %lld (mass=%.3e age(Myr)=%e, age(internal)=%e, injected_energy_density1=%.3e, 2 = %.3e, 3 = %.3e,  time_bin=%d) injecting without emission rate",
+            si->id, si->mass, star_age_Myr, star_age, si->rt_data.emission_this_step[0],si->rt_data.emission_this_step[1], si->rt_data.emission_this_step[2], si->time_bin);
+	warning("Injecting energy from star without setting emission rate");
+  } 
   si->rt_data.debug_iact_hydro_inject += 1;
   si->rt_data.debug_radiation_emitted_tot += 1ULL;
 
@@ -167,8 +175,69 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_inject(
     /* Inject energy. */
     const float injected_energy_density =
         si->rt_data.emission_this_step[g] * weight * Vinv;
-    pj->rt_data.radiation[g].energy_density += injected_energy_density;
+    /* Debug print */
+    float redshift = 1.0f / a - 1.0f;
+    
+    //printf(
+    //    "Redshift %f, Group %d:\n"
+    //    "  Vinv = %.6e\n"
+    //    "  Emission_this_step = %.6e\n"
+    //    "  weight = %.6e\n"
+    //    "  injected_energy_density = %.6e\n"
+    //    "  Before injection, E_old = %.6e\n",
+    //    redshift, g,
+    //    Vinv,
+    //    si->rt_data.emission_this_step[g],
+    //    weight,
+    //    injected_energy_density,
+    //    pj->rt_data.radiation[g].energy_density
+    //);
 
+    pj->rt_data.radiation[g].energy_density += injected_energy_density;
+    
+    /* Optional: print after injection */
+    //printf(
+    //    "  After injection, E_new = %.6e\n",
+    //    pj->rt_data.radiation[g].energy_density
+    //);
+    //if (pj->id == 2906974) {
+    //const int decoupled_j = pj->decoupled;
+    //const float e_old = pj->rt_data.radiation[g].energy_density;
+    //printf("=== Track particle 2906974(runner_iact_rt_inject) ===\n");
+    //printf("Redshift = %e\n", redshift);
+    //printf("Group %d\n", g);
+    //printf("Particle j is %sdecoupled\n", decoupled_j ? "" : "NOT ");
+    //printf("E_old = %.6e\n", e_old);
+    //printf("E_new = %.6e\n", pj->rt_data.radiation[g].energy_density);
+    //printf("Energy density = %e\n", pj->rt_data.radiation[g].energy_density);
+    //printf("Density (rho) = %e\n", pj->rho);
+    //printf("Smoothing length (h) = %e\n", pj->h);
+    //printf("Vinv = %.6e\n", Vinv);
+    //printf("injected_energy_density = %.6e\n", injected_energy_density);
+    //printf("Radiation Flux vector = [%.6e %.6e %.6e]\n",
+    //       pj->rt_data.radiation[g].flux[0],
+    //       pj->rt_data.radiation[g].flux[1],
+    //       pj->rt_data.radiation[g].flux[2]);
+    //printf("--------------------------------------\n");
+    //fflush(stdout);  // make sure it prints immediately
+    //    }
+
+    /* Check abnormal values */
+    if (injected_energy_density > 1.0e10 ||
+        isnan(injected_energy_density) || isinf(injected_energy_density) ||
+        pj->rt_data.radiation[g].energy_density > 1.0e20) {
+        
+        error("Warning: large injection energy: particle %lld, group %d:\n"
+               "    redshift                = %f\n"
+	       "    injected_energy_density = %e\n"
+               "    weight*Vinv             = %e\n"
+               "    energy_density          = %e\n",
+               (long long)pj->id, g,
+	       redshift,
+               injected_energy_density,
+               weight * Vinv,
+               pj->rt_data.radiation[g].energy_density);
+    }
     /* Don't inject flux. */
   }
 
@@ -351,6 +420,15 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_flux_common(
 
     rt_compute_flux(Ui, Uj, n_unit, Anorm, totflux);
 
+    // After rt_compute_flux(...)
+    //for (int k = 0; k < 4; k++) {
+    //  if (!isfinite(totflux[k]) || fabs(totflux[k]) > 1e20) {
+    //    printf("Warning: large flux[%d] = %e between particles %lld and %lld, group %d\n",
+    //           k, totflux[k], pi->id, pj->id, g);
+    //    totflux[k] = 0.0;   // or clamp to +/- 1e20 instead of zero
+    //  }
+    // }
+
     /* When solving the Riemann problem, we assume pi is left state, and
      * pj is right state. The sign convention is that a positive total
      * flux is subtracted from the left state, and added to the right
@@ -360,6 +438,7 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_flux_common(
      * the fluxes are always exchanged symmetrically. Thanks to our sneaky use
      * of flux_dt, we can detect inactive neighbours through their negative time
      * step. */
+    if (mindt > 0.f){
     rti->flux[g].energy -= totflux[0] * mindt;
     rti->flux[g].flux[0] -= totflux[1] * mindt;
     rti->flux[g].flux[1] -= totflux[2] * mindt;
@@ -370,6 +449,98 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_flux_common(
       rtj->flux[g].flux[1] += totflux[2] * mindt;
       rtj->flux[g].flux[2] += totflux[3] * mindt;
     }
+    }
+    
+    //if ((pi->id == 4057056 || pj->id == 4057056) &&
+    //(rti->radiation[g].energy_density > 1e2 || rtj->radiation[g].energy_density > 1e2)) {
+    //    double z = 1.0 / a - 1.0;
+    //	const int decoupled_i = pi->decoupled;
+    // 	const int decoupled_j = pj->decoupled;
+    //printf("=== Track particle 4057056(runner_iact_rt_flux_common) ===\n");
+    //if (pi->id == 4057056) {
+    //    printf("Matched particle: pi (ID = %lld)\n", (long long)pi->id);
+    //	printf("pj (ID = %lld)\n", (long long)pj->id);
+    //}
+    //if (pj->id == 4057056) {
+    //    printf("Matched particle: pj (ID = %lld)\n", (long long)pj->id);
+    //	printf("pi (ID = %lld)\n", (long long)pi->id);
+    //}
+    //printf("Particle i is %sdecoupled\n", decoupled_i ? "" : "NOT ");
+    //printf("Particle j is %sdecoupled\n", decoupled_j ? "" : "NOT ");
+    //printf("Redshift = %e\n", z);
+    //printf("Group %d\n", g);
+    //printf("Distance = %e\n", r);
+    //printf("Energy density particle i= %e\n", rti->radiation[g].energy_density);
+    //printf("Energy density particle j= %e\n", rtj->radiation[g].energy_density);
+    //printf("Density (rho) i= %e\n", pi->rho);
+    //printf("Density (rho) j= %e\n", pj->rho);
+    //printf("Smoothing length (hi) = %e\n", pi->h);
+    //printf("Smoothing length (hi) = %e\n", pj->h);
+    //printf("mindt = %e\n", mindt);
+    //printf("mode = %d, rti->flux_dt = %f, rtj->flux_dt = %f, mindt = %f\n",
+    //   mode, rti->flux_dt, rtj->flux_dt, mindt);
+    //printf("totflux = [%.6e %.6e %.6e %.6e]\n",
+    //       totflux[0],
+    //       totflux[1],
+    //       totflux[2],
+    // 	   totflux[3]);
+    //printf("Flux energy i= %e\n", rti->flux[g].energy);
+    //printf("Flux vector i= [%.6e %.6e %.6e]\n",
+    //       rti->flux[g].flux[0],
+    //       rti->flux[g].flux[1],
+    //       rti->flux[g].flux[2]);
+    //printf("Radiation Flux vectori = [%.6e %.6e %.6e]\n",
+    //       rti->radiation[g].flux[0],
+    //       rti->radiation[g].flux[1],
+    //       rti->radiation[g].flux[2]);
+    //printf("Flux energy j= %e\n", rtj->flux[g].energy);
+    //printf("Flux vector j= [%.6e %.6e %.6e]\n",
+    //       rtj->flux[g].flux[0],
+    //       rtj->flux[g].flux[1],
+    //       rtj->flux[g].flux[2]);
+    //printf("Radiation Flux vectorj = [%.6e %.6e %.6e]\n",
+    //       rtj->radiation[g].flux[0],
+    //       rtj->radiation[g].flux[1],
+    //       rtj->radiation[g].flux[2]);
+    //printf("--------------------------------------\n");
+    //fflush(stdout);  // make sure it prints immediately
+    //    }
+    //CHECK FLUX compute here
+    for (int k = 0; k < 3; k++) {
+    double val = rti->flux[g].flux[k];
+    if (!isfinite(val)) {
+        printf("DEBUG: NaN/Inf in rti->flux[g=%d].flux[%d]: %g (pid=%lld)\n",
+               g, k, val, (long long)pi->id);
+        fflush(stdout);
+        abort(); // stop immediately
+    }
+    }
+
+    if (!isfinite(rti->flux[g].energy)) {
+    printf("DEBUG: NaN/Inf in rti->flux[g=%d].energy: %g (pid=%lld)\n",
+           g, rti->flux[g].energy, (long long)pi->id);
+    fflush(stdout);
+    abort();
+	}
+
+    for (int k = 0; k < 3; k++) {
+    double val = rtj->flux[g].flux[k];
+    if (!isfinite(val)) {
+        printf("DEBUG: NaN/Inf in rtj->flux[g=%d].flux[%d]: %g (pid=%lld)\n",
+               g, k, val, (long long)pj->id); // q = neighbor particle?
+        fflush(stdout);
+        abort();
+    }
+	}
+
+	if (!isfinite(rtj->flux[g].energy)) {
+    	printf("DEBUG: NaN/Inf in rtj->flux[g=%d].energy: %g (pid=%lld)\n",
+           g, rtj->flux[g].energy, (long long)pj->id);
+    	fflush(stdout);
+    	abort();
+	}
+    
+
   }
 }
 

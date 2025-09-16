@@ -3360,6 +3360,17 @@ case "$with_rt_riemann_solver" in
         ;;
 esac
 
+# ----------------------------------------------------------------------
+# Optional Features
+# ----------------------------------------------------------------------
+
+# Add an option for enabling debugging checks for RT
+AC_ARG_ENABLE([debugging-checks-rt],
+  [AS_HELP_STRING([--enable-debugging-checks-rt],
+                  [Enable additional debugging checks for RT (default: no)])],
+  [enable_debugging_checks_rt=$enableval],
+  [enable_debugging_checks_rt=no])
+
 case "$with_rt" in
    none)
       AC_DEFINE([RT_NONE], [1], [No radiative transfer scheme])
@@ -3379,7 +3390,7 @@ case "$with_rt" in
           AC_MSG_ERROR([GEAR-RT: Cannot work with non-integer photon groups])
       fi
 
-      if test "$enable_debugging_checks" = "yes"; then
+      if test "$enable_debugging_checks_rt" = "yes"; then
           AC_DEFINE([SWIFT_RT_DEBUG_CHECKS], [1], [additional debugging checks for RT])
       fi
 
