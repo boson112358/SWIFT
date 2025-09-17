@@ -84,8 +84,8 @@ rt_compute_stellar_emission_rate(struct spart* restrict sp, double time,
   const double star_age_before_Myr = star_age_begin_of_step * time_to_Myr;
   const double star_age_now_Myr = star_age * time_to_Myr;
 
-  message("star age check: star_age_begin_of_step (%.6e), star_age (%.6e) for star %lld,star_age_before_Myr(%.6e), star_age_now_Myr(%.6e)",
-          star_age_begin_of_step, star_age, sp->id, star_age_before_Myr, star_age_now_Myr);
+  //message("star age check: star_age_begin_of_step (%.6e), star_age (%.6e) for star %lld,star_age_before_Myr(%.6e), star_age_now_Myr(%.6e)",
+  //        star_age_begin_of_step, star_age, sp->id, star_age_before_Myr, star_age_now_Myr);
 
   if (star_age_begin_of_step > star_age)
     error("star_age_begin_of_step (%.6e) > star_age (%.6e) for star %lld, star_age_before_Myr(%.6e), star_age_now_Myr(%.6e), dt=%e",star_age_begin_of_step, star_age, sp->id, star_age_before_Myr, star_age_now_Myr, dt);
