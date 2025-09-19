@@ -35,6 +35,7 @@
 #ifdef WITH_FOF_GALAXIES
 #include "fof_struct.h"
 #endif
+#include "fvpm_geometry_struct.h"
 #include "mhd_struct.h"
 #include "particle_splitting_struct.h"
 #include "pressure_floor_struct.h"
@@ -293,6 +294,9 @@ struct part {
   integertime_t ti_kick;
 
 #endif
+
+  /*! Geometrical quantities used for Finite Volume Particle Method RT. */
+  struct fvpm_geometry_struct geometry;
 
 } SWIFT_STRUCT_ALIGN;
 

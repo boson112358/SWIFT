@@ -33,6 +33,7 @@
 #include "dimension.h"
 #include "entropy_floor.h"
 #include "equation_of_state.h"
+#include "fvpm_geometry.h"
 #include "hydro_parameters.h"
 #include "hydro_properties.h"
 #include "hydro_space.h"
@@ -626,6 +627,9 @@ __attribute__((always_inline)) INLINE static void hydro_init_part(
       p->viscosity.velocity_gradient[i][j] = 0.f;
     }
   }
+
+  /* Init geometry for FVPM Radiative Transfer */
+  fvpm_geometry_init(p);
 }
 
 /**
@@ -684,6 +688,9 @@ __attribute__((always_inline)) INLINE static void hydro_end_density(
       p->viscosity.velocity_gradient[i][j] += hubble_term;
     }
   }
+
+  /* Finish matrix and volume computations for FVPM Radiative Transfer */
+  fvpm_compute_volume_and_matrix(p, h_inv_dim);
 }
 
 /**

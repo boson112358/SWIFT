@@ -3410,11 +3410,11 @@ case "$with_rt" in
       fi
 
       case "$with_hydro" in
-          "gizmo-mfv" | "sphenix")
+          "gizmo-mfv" | "sphenix" | "gasoline")
           # allowed.
         ;;
         *)
-          AC_MSG_ERROR([GEAR-RT: Cannot work without gizmo-mfv or sphenix hydro. Compile using --with-hydro=gizmo-mfv or --with-hydro=sphenix])
+          AC_MSG_ERROR([GEAR-RT: Cannot work without gizmo-mfv or sphenix hydro. Compile using --with-hydro=gizmo-mfv or --with-hydro=sphenix or --with-hydro=gasoline])
         ;;
       esac
 
