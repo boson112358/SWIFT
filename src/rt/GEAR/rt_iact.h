@@ -176,7 +176,7 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_inject(
     const float injected_energy_density =
         si->rt_data.emission_this_step[g] * weight * Vinv;
     /* Debug print */
-    float redshift = 1.0f / a - 1.0f;
+    //float redshift = 1.0f / a - 1.0f;
     
     //printf(
     //    "Redshift %f, Group %d:\n"
@@ -223,21 +223,21 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_inject(
     //    }
 
     /* Check abnormal values */
-    if (injected_energy_density > 1.0e10 ||
-        isnan(injected_energy_density) || isinf(injected_energy_density) ||
-        pj->rt_data.radiation[g].energy_density > 1.0e20) {
+    //if (injected_energy_density > 1.0e10 ||
+    //    isnan(injected_energy_density) || isinf(injected_energy_density) ||
+    //    pj->rt_data.radiation[g].energy_density > 1.0e20) {
         
-        error("Warning: large injection energy: particle %lld, group %d:\n"
-               "    redshift                = %f\n"
-	       "    injected_energy_density = %e\n"
-               "    weight*Vinv             = %e\n"
-               "    energy_density          = %e\n",
-               (long long)pj->id, g,
-	       redshift,
-               injected_energy_density,
-               weight * Vinv,
-               pj->rt_data.radiation[g].energy_density);
-    }
+    //    error("Warning: large injection energy: particle %lld, group %d:\n"
+    //           "    redshift                = %f\n"
+    //	       "    injected_energy_density = %e\n"
+    //           "    weight*Vinv             = %e\n"
+    //           "    energy_density          = %e\n",
+    //           (long long)pj->id, g,
+    //	       redshift,
+    //           injected_energy_density,
+    //           weight * Vinv,
+    //           pj->rt_data.radiation[g].energy_density);
+    //}
     /* Don't inject flux. */
   }
 
