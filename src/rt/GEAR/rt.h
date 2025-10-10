@@ -575,7 +575,7 @@ __attribute__((always_inline)) INLINE static void rt_finalise_transport(
     const double photon_energy_updated = rtd->radiation[g].energy_density * p->geometry.volume;
 
     //Adding a hard ceilling for the photon energy, we could change this ceilling accordingly
-    const double MAX_E_ERG = 1e55; // unit erg
+    const double MAX_E_ERG = 1e61; // unit erg
 
     // pre-convert once to code units
     const double MAX_E_CODE = MAX_E_ERG / conversion_factor; 
