@@ -570,6 +570,55 @@ __attribute__((always_inline)) INLINE static void rt_finalise_transport(
         rtd->radiation[g].flux[2] *
         redshift_factor;  // Energy lost due to redshift
     
+    /* --- Check: energy reach to e60 ergs --- */
+    const double conversion_factor = 1.98841e53;  //in erg
+    const double photon_energy_updated = rtd->radiation[g].energy_density * p->geometry.volume;
+
+    //Adding a hard ceilling for the photon energy, we could change this ceilling accordingly
+    const double MAX_E_ERG = 1e55; // unit erg
+
+    // pre-convert once to code units
+    const double MAX_E_CODE = MAX_E_ERG / conversion_factor; 
+    if (photon_energy_updated > MAX_E_CODE){
+	// store old energy density
+    	const double old_energy_density = rtd->radiation[g].energy_density;
+
+	const double max_energy_density = MAX_E_CODE * Vinv;
+    	rtd->radiation[g].energy_density = max_energy_density;
+	
+	//Constrain radiation flux with same fraction as well
+	double frac = max_energy_density / old_energy_density;
+	frac = min(1., frac);
+	frac = max(0., frac);
+	for (int i = 0; i < 3; i++) {
+      		p->rt_data.radiation[g].flux[i] *= frac;
+    }
+    }
+
+    //if (photon_energy_updated > 1e62) {
+
+    //  double flux_contrib = rtd->flux[g].energy * Vinv;
+    //  double redshift_loss = rtd->radiation[g].energy_density * redshift_factor;
+
+    //  printf("=== Energy exceed e60 warning ===\n");
+    //  printf("Particle ID = %lld\n", (long long)p->id); // replace with actual ID field
+    //  printf("Group %d\n", g);
+    //  printf("Photon_energy in erg = %.6e\n", photon_energy_updated);
+    //  printf("Erho_old = %.6e\n", e_old);
+    //  printf("Erho_new = %.6e\n", rtd->radiation[g].energy_density);
+    //  printf("Flux contribution = %.6e\n", flux_contrib);
+    //  printf("Redshift loss = %.6e\n", redshift_loss);
+    //  printf("Vinv = %.6e, redshift_factor = %.6e\n", Vinv, redshift_factor);
+    //  printf("Flux_energy = %.6e\n", rtd->flux[g].energy);
+    //  printf("Flux vector = [%.6e %.6e %.6e]\n",
+    //       rtd->flux[g].flux[0],
+    //       rtd->flux[g].flux[1],
+    //       rtd->flux[g].flux[2]);
+    //  fflush(stdout);   // force all printf buffers to flush
+    //  fprintf(stderr, "Fatal error: runaway energy density detected.\n");
+    //  abort();
+    //}
+
     /* --- Check: already huge AND jump > 5 orders of magnitude --- */
     //if (e_old > 0 &&
     //  e_old >= 1e5 &&
