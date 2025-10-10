@@ -452,34 +452,47 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_flux_common(
     }
     }
     
-    //if ((pi->id == 4057056 || pj->id == 4057056) &&
+    //if ((pi->id == 3107416 || pj->id == 3107416) &&
     //(rti->radiation[g].energy_density > 1e2 || rtj->radiation[g].energy_density > 1e2)) {
     //    double z = 1.0 / a - 1.0;
     //	const int decoupled_i = pi->decoupled;
     // 	const int decoupled_j = pj->decoupled;
-    //printf("=== Track particle 4057056(runner_iact_rt_flux_common) ===\n");
-    //if (pi->id == 4057056) {
+    //printf("=== Track particle 3107416(runner_iact_rt_flux_common) ===\n");
+    //if (pi->id == 3107416) {
     //    printf("Matched particle: pi (ID = %lld)\n", (long long)pi->id);
     //	printf("pj (ID = %lld)\n", (long long)pj->id);
-    //}
-    //if (pj->id == 4057056) {
+    // }
+    //if (pj->id == 3107416) {
     //    printf("Matched particle: pj (ID = %lld)\n", (long long)pj->id);
     //	printf("pi (ID = %lld)\n", (long long)pi->id);
     //}
+
+
     //printf("Particle i is %sdecoupled\n", decoupled_i ? "" : "NOT ");
     //printf("Particle j is %sdecoupled\n", decoupled_j ? "" : "NOT ");
     //printf("Redshift = %e\n", z);
     //printf("Group %d\n", g);
     //printf("Distance = %e\n", r);
+    //printf("Anorm = %e\n", Anorm);
     //printf("Energy density particle i= %e\n", rti->radiation[g].energy_density);
     //printf("Energy density particle j= %e\n", rtj->radiation[g].energy_density);
     //printf("Density (rho) i= %e\n", pi->rho);
     //printf("Density (rho) j= %e\n", pj->rho);
     //printf("Smoothing length (hi) = %e\n", pi->h);
-    //printf("Smoothing length (hi) = %e\n", pj->h);
+    //printf("Smoothing length (hj) = %e\n", pj->h);
     //printf("mindt = %e\n", mindt);
-    //printf("mode = %d, rti->flux_dt = %f, rtj->flux_dt = %f, mindt = %f\n",
+    //printf("mode = %d, rti->flux_dt = %e, rtj->flux_dt = %e, mindt = %e\n",
     //   mode, rti->flux_dt, rtj->flux_dt, mindt);
+    //printf("Ui = [%.6e %.6e %.6e %.6e]\n",
+    //       Ui[0],
+    //       Ui[1],
+    //       Ui[2],
+    //       Ui[3]);
+    //printf("Uj = [%.6e %.6e %.6e %.6e]\n",
+    //       Uj[0],
+    //       Uj[1],
+    //       Uj[2],
+    //       Uj[3]);
     //printf("totflux = [%.6e %.6e %.6e %.6e]\n",
     //       totflux[0],
     //       totflux[1],
@@ -505,41 +518,41 @@ __attribute__((always_inline)) INLINE static void runner_iact_rt_flux_common(
     //       rtj->radiation[g].flux[2]);
     //printf("--------------------------------------\n");
     //fflush(stdout);  // make sure it prints immediately
-    //    }
+     //   }
     //CHECK FLUX compute here
-    for (int k = 0; k < 3; k++) {
-    double val = rti->flux[g].flux[k];
-    if (!isfinite(val)) {
-        printf("DEBUG: NaN/Inf in rti->flux[g=%d].flux[%d]: %g (pid=%lld)\n",
-               g, k, val, (long long)pi->id);
-        fflush(stdout);
-        abort(); // stop immediately
-    }
-    }
+    //for (int k = 0; k < 3; k++) {
+    //double val = rti->flux[g].flux[k];
+    //if (!isfinite(val)) {
+    //    printf("DEBUG: NaN/Inf in rti->flux[g=%d].flux[%d]: %g (pid=%lld)\n",
+    //           g, k, val, (long long)pi->id);
+    //    fflush(stdout);
+    //    abort(); // stop immediately
+    //}
+    //}
 
-    if (!isfinite(rti->flux[g].energy)) {
-    printf("DEBUG: NaN/Inf in rti->flux[g=%d].energy: %g (pid=%lld)\n",
-           g, rti->flux[g].energy, (long long)pi->id);
-    fflush(stdout);
-    abort();
-	}
+    //if (!isfinite(rti->flux[g].energy)) {
+    //printf("DEBUG: NaN/Inf in rti->flux[g=%d].energy: %g (pid=%lld)\n",
+    //       g, rti->flux[g].energy, (long long)pi->id);
+    //fflush(stdout);
+    //abort();
+//	}
 
-    for (int k = 0; k < 3; k++) {
-    double val = rtj->flux[g].flux[k];
-    if (!isfinite(val)) {
-        printf("DEBUG: NaN/Inf in rtj->flux[g=%d].flux[%d]: %g (pid=%lld)\n",
-               g, k, val, (long long)pj->id); // q = neighbor particle?
-        fflush(stdout);
-        abort();
-    }
-	}
+    //for (int k = 0; k < 3; k++) {
+    //double val = rtj->flux[g].flux[k];
+    //if (!isfinite(val)) {
+    //    printf("DEBUG: NaN/Inf in rtj->flux[g=%d].flux[%d]: %g (pid=%lld)\n",
+    //           g, k, val, (long long)pj->id); // q = neighbor particle?
+    //    fflush(stdout);
+    //    abort();
+    //}
+//	}
 
-	if (!isfinite(rtj->flux[g].energy)) {
-    	printf("DEBUG: NaN/Inf in rtj->flux[g=%d].energy: %g (pid=%lld)\n",
-           g, rtj->flux[g].energy, (long long)pj->id);
-    	fflush(stdout);
-    	abort();
-	}
+	//if (!isfinite(rtj->flux[g].energy)) {
+    	//printf("DEBUG: NaN/Inf in rtj->flux[g=%d].energy: %g (pid=%lld)\n",
+        //   g, rtj->flux[g].energy, (long long)pj->id);
+    	//fflush(stdout);
+    	//abort();
+	//}
     
   }
 }
