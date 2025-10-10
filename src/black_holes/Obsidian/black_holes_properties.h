@@ -298,6 +298,9 @@ struct black_holes_props {
   /*! The minimum mass required before the jet will launch */
   float jet_minimum_reservoir_mass;
 
+  /*! Above this luminosity in erg/s always launch a jet */
+  float lum_thresh_always_jet;
+
   /*! Direction flag to kick the winds by default */
   int default_dir_flag;
 
@@ -723,6 +726,12 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
                                "ObsidianAGN:jet_minimum_reservoir_mass_Msun");
   bp->jet_minimum_reservoir_mass /= bp->mass_to_solar_mass;
 
+  bp->lum_thresh_always_jet
+      = parser_get_opt_param_float(params, 
+                               "ObsidianAGN:lum_thresh_always_jet_1e45_erg_s", 0.f);
+  bp->lum_thresh_always_jet *= units_cgs_conversion_factor(us, UNIT_CONV_TIME) /
+      units_cgs_conversion_factor(us, UNIT_CONV_ENERGY);
+
   /* 2 is along accreted angular momentum direction */
   bp->default_dir_flag =
       parser_get_opt_param_int(params, "ObsidianAGN:default_dir_flag", 2);
@@ -738,7 +747,7 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
   bp->quasar_coupling = 
       parser_get_param_float(params, "ObsidianAGN:quasar_coupling");
   bp->quasar_luminosity_thresh = 
-      parser_get_opt_param_float(params, "ObsidianAGN:quasar_luminosity_thresh_1e45_erg_s", 0.f);
+      parser_get_opt_param_float(params, "ObsidianAGN:quasar_lum_thresh_1e45_erg_s", 0.f);
   bp->quasar_luminosity_thresh *= units_cgs_conversion_factor(us, UNIT_CONV_TIME) /
       units_cgs_conversion_factor(us, UNIT_CONV_ENERGY);
   bp->slim_disk_coupling = parser_get_opt_param_float(params, 
@@ -1112,9 +1121,16 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
             f_jet_recouple);
     message("Black hole quasar radiative efficiency is %g",
             bp->epsilon_r);
-    message("Black hole quasar coupling %g is boosted above Lbol>%g erg/s",
+    if (bp->quasar_luminosity_thresh > 0.f) {
+      message("Black hole quasar coupling %g is boosted above Lbol>%g erg/s",
             bp->quasar_coupling, bp->quasar_luminosity_thresh * 
 	    bp->conv_factor_energy_rate_to_cgs * 1.e45);
+    }
+    if (bp->lum_thresh_always_jet > 0.f) {
+      message("Black hole jet mode always on above Lbol>%g erg/s",
+            bp->lum_thresh_always_jet * 
+	    bp->conv_factor_energy_rate_to_cgs * 1.e45);
+    }
     message("Black hole quasar wind speed is %g km/s",
             bp->quasar_wind_speed / bp->kms_to_internal);
     message("Black hole quasar mass loading (momentum) is %g", 
@@ -1138,6 +1154,24 @@ INLINE static void black_holes_props_init(struct black_holes_props *bp,
             bp->adaf_wind_speed / bp->kms_to_internal);
   }
 }
+
+/**
+ * @brief Computes the mass limit above which ADAF mode is allowed.
+ *
+ * @param bp The black hole particle.
+ * @param props The properties of the black hole scheme.
+ * @param cosmo The current cosmological model.
+ */
+__attribute__((always_inline)) INLINE static
+double get_black_hole_adaf_mass_limit(const struct bpart* const bp,
+    const struct black_holes_props* props, const struct cosmology* cosmo) {
+  double mass_min = fabs(props->adaf_mass_limit);
+  if (props->adaf_mass_limit < 0.) mass_min *=
+          pow(fmax(cosmo->a, props->adaf_mass_limit_a_min), props->adaf_mass_limit_a_scaling);
+  mass_min += 0.01f * (float)(bp->id % 100) * props->adaf_mass_limit_spread;
+  return mass_min;
+}
+
 
 /**
  * @brief Write a black_holes_props struct to the given FILE as a stream of
